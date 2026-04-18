@@ -1,0 +1,25 @@
+# Configuration file for downloading sea level rise datasets from the NOAA website:
+# https://coast.noaa.gov/slrdata/Ancillary/index.html
+
+########### NOAA directories and files (these are more-or-less constant) ###########
+# path to the shapefiles and ancillary data
+NOAA_base_url : "https://coast.noaa.gov/slrdata/Ancillary/NOAA_OCM_SLR_MergedPolys_Shapefiles_0225/"
+# extension names of the shapefiles and ancillary data we want to download
+extension_names : ["cpg", "dbf", "prj", "sbn", "sbx", "shp", "xml", "shx"]
+
+########### filename formatting to specify the files we want to download ###########
+########### these pieces may vary depending on which specific files we want ########
+########### a typical file looks like this: MS_AL_merged_slr_3.0_ft.shp ############
+########### where MS_AL is the location name (here = Mississippi & Alabama) ########
+########### merged_slr = sea level rise vector (merged_low) = low areas ############
+########### 3.0_ft = vectors for 3 ft of sea level rise ############################
+########### .shp = file extension as defined above #################################
+# Location names to download
+location_names : ["Atlantic", "Florida",  "LA", "MS_AL", "TX", "Pacific", "West"]
+# vector type to download (may be slr or low)
+vector_type : "slr"
+# sea level rise height (may be integer values from 0 to 10)
+slr_height  : 3
+
+# download directory name
+download_directory : "~/!Essentials/Nora_SLR/SLR_downloads"

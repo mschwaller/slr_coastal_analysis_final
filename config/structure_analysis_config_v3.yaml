@@ -1,0 +1,117 @@
+# ==============================================================================
+# FEMA Structure × SLR Flooding Analysis Configuration (v2)
+# Shared config for: load_structures, create_slr_region_tables, analyze_flooding
+# ==============================================================================
+
+# Database Configuration
+# ------------------------------------------------------------------------------
+database:
+  name: "megaSLR"
+  host: "localhost"
+
+# Processing Mode
+# ------------------------------------------------------------------------------
+mode:
+  test: false                   # true = test county only, false = full state(s)
+  verbose: true                 # Detailed logging
+
+# Geographic Scope
+# ------------------------------------------------------------------------------
+# All 21 coastal states:
+states: ["01","06","09","10","12","13","22","23","24","25","28","33","34","36","37","41","44","45","48","51","53"]
+
+# Coastal states for 7 April 2026 launch_subdivide_parallel_v1.R run:
+# Wave #1: ME, MD, MA, NH, RI, SC
+# states: ["23","24","25","33","44","45"]
+# Wave #2: GA, NJ, NY, NC, VA
+# states: ["13","34","36","37","51"]
+
+# Test county per state (only used if mode.test = true)
+test_counties:
+  "01": "003"                   # AL - Baldwin
+  "06": "037"                   # CA - Los Angeles
+  "09": "009"                   # CT - New Haven
+  "10": "005"                   # DE - Sussex
+  "12": "086"                   # FL - Miami-Dade
+  "13": "051"                   # GA - Chatham (Savannah)
+  "22": "071"                   # LA - Orleans
+  "23": "005"                   # ME - Cumberland (Portland)
+  "24": "003"                   # MD - Anne Arundel
+  "25": "025"                   # MA - Suffolk (Boston)
+  "28": "047"                   # MS - Harrison (Biloxi)
+  "33": "015"                   # NH - Rockingham
+  "34": "025"                   # NJ - Monmouth
+  "36": "047"                   # NY - Kings (Brooklyn)
+  "37": "019"                   # NC - Brunswick
+  "41": "007"                   # OR - Clatsop (Astoria)
+  "44": "003"                   # RI - Kent
+  "45": "019"                   # SC - Charleston
+  "48": "167"                   # TX - Galveston
+  "51": "810"                   # VA - Virginia Beach
+  "53": "033"                   # WA - King (Seattle)
+
+# SLR Scenarios
+# ------------------------------------------------------------------------------
+slr_scenarios: ["0ft", "1ft", "2ft", "3ft", "4ft", "5ft", "6ft", "7ft", "8ft", "9ft", "10ft"]
+
+# SLR Region Names (must match the 'region' column in slr_clean_Xft tables)
+# ------------------------------------------------------------------------------
+slr_regions: ["atlantic", "florida", "la", "ms_al", "tx", "west"]
+
+# Pre-filtering Configuration (used by load_structures_to_db_v2.R)
+# ------------------------------------------------------------------------------
+prefilter:
+  tract_table: "public.tract_10ft_intersections"
+
+# File Paths - TRIPPER3
+# ------------------------------------------------------------------------------
+paths:
+  log_dir: "~/Science/Nora_SLR/SLR_log_files"
+  structures_base_dir: "~/Science/Nora_SLR/house_footprints"
+  structures_export_dir: "~/claude_projects/slr_analysis/exports/flooded_structures_gpkg"   # optional, uses hard-coded default if not specified
+
+# Structure Loading Parameters (used by load_structures_to_db_v2.R)
+# ------------------------------------------------------------------------------
+load_structures:
+  skip_if_exists: false
+  overwrite_existing: true
+  create_spatial_index: true
+
+# SLR Region Table Parameters (used by create_slr_region_tables.R)
+# ------------------------------------------------------------------------------
+slr_region_tables:
+  overwrite_existing: false     # Set true to rebuild region tables
+
+# Analysis Parameters (used by analyze_structure_slr_flooding_v2.R)
+# ------------------------------------------------------------------------------
+analysis:
+  results_table_pattern: "flooded_structures_{state}_{scenario}"
+  overwrite_existing: true
+
+# ST_Subdivide Parameters (used by create_state_slr_subdivided.R)
+# ------------------------------------------------------------------------------
+subdivide:
+  max_vertices: 256             # Max vertices per subdivided polygon
+  buffer_meters: 1000           # Buffer around structure extent in meters
+  overwrite_existing: true
+  tracts_table: "census_tracts_2025"    # v3: bbox source (was usa_structures)
+
+
+# Processing Flags
+# ------------------------------------------------------------------------------
+flags:
+  play_fanfare: true
+  
+# Processing Code Paths
+# ------------------------------------------------------------------------------
+create_region_tables: "~/claude_projects/slr_analysis/structures/code/01_prepare/create_slr_region_tables.R"
+create_state_subdivisions: "~/claude_projects/slr_analysis/structures/code/01_prepare/create_state_slr_subdivided_v3.R"
+analyze_structures: "~/claude_projects/slr_analysis/structures/code/02_analyze/analyze_structure_slr_flooding_v2_1.R"
+
+# Include SLR subdivide ST_MakeValid()?
+# Including the ST_MakeValid() call in the psql make_query block increases the processing
+# clock time but also ensures that the sub-divided geometries are valid. Invalid geometries
+# are rare but will cause a psql error (and stop processing) if they occur. 
+# So setting this param to true will INCLUDE the ST_MakeValid() call
+# ------------------------------------------------------------------------------
+use_make_valid : true

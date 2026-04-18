@@ -1,0 +1,93 @@
+# ==============================================================================
+# Census Tracts × SLR Intersection Analysis — Configuration
+# ==============================================================================
+# Used by: fn_build_tract_intersections_v2.R
+#
+# This config drives the tract-level SLR intersection analysis. It loops over
+# all slr_scenarios listed below, producing one output table per scenario.
+# ==============================================================================
+
+# Database
+# ------------------------------------------------------------------------------
+database:
+  name: "megaSLR"
+  host: "localhost"
+
+# Processing
+# ------------------------------------------------------------------------------
+mode:
+  verbose: true
+
+# Geographic Scope — 21 coastal states (FIPS codes)
+# ------------------------------------------------------------------------------
+# These must match the subdivided SLR table suffixes: slr_{scenario}_{fips}
+states:
+ - "01"   # AL
+ - "06"   # CA
+ - "09"   # CT
+ - "10"   # DE
+ - "12"   # FL
+ - "13"   # GA
+ - "22"   # LA
+ - "23"   # ME
+ - "24"   # MD
+ - "25"   # MA
+ - "28"   # MS
+ - "33"   # NH
+ - "34"   # NJ
+ - "36"   # NY
+ - "37"   # NC
+ - "41"   # OR
+ - "44"   # RI
+ - "45"   # SC
+ - "48"   # TX
+ - "51"   # VA
+ - "53"   # WA
+
+#states:
+# - "44"   # RI
+
+# SLR Scenarios to process (loops over all in a single run)
+# ------------------------------------------------------------------------------
+# Table naming: slr_{scenario}_{fips}  (input)
+#               tract_{scenario}_intersections  (output)
+slr_scenarios:
+ - "0ft"
+ - "1ft"
+ - "2ft"
+ - "3ft"
+ - "4ft"
+ - "5ft"
+ - "6ft"
+ - "7ft"
+ - "8ft"
+ - "9ft"
+ - "10ft"
+
+# slr_scenarios:
+# - "1ft"
+
+
+# Source tracts table
+# ------------------------------------------------------------------------------
+tracts_table: "census_tracts_2025"
+
+# Analysis
+# ------------------------------------------------------------------------------
+analysis:
+  output_table_pattern: "tract_{scenario}_intersections"
+  overwrite_existing: true
+
+# Paths
+# ------------------------------------------------------------------------------
+paths:
+  log_dir: "~/Science/Nora_SLR/SLR_log_files"
+  tracts_export_dir :  "~/claude_projects/slr_analysis/exports/flooded_tracts_gpkg" 
+
+# Notifications & alerts
+# ------------------------------------------------------------------------------
+notifications:
+  ntfy_topic: "matt-tripper3-jobs"
+
+flags:
+  play_fanfare: true

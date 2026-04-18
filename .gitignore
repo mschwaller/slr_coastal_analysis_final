@@ -1,0 +1,18 @@
+# Mac
+.DS_Store
+**/.DS_Store
+
+# R
+.Rhistory
+.RData
+.Rproj.user
+*.Rproj
+
+# Large data/output files
+*.gpkg
+*.shp
+*.dbf
+*.shx
+*.prj
+*.tif
+*.log
