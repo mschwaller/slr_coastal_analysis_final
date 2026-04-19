@@ -38,7 +38,7 @@ documentation (`docs/NOAA_SLR_methods_pipeline_v3.md`).
 ## Pipeline Summary
 
 | Section | Step | Script | Output |
-|--------------------|-----------------|------------------|------------------|
+|-------------------|------------------|------------------|------------------|
 | 2.1 | Download NOAA SLR shapefiles | `NOAA_SLR_downloader_v3.R` + `ogr2ogr` | 66 tables (`slr_Xft_region`) |
 | 2.2 | Ingest Census tracts | `wget` + `shp2pgsql` | 1 table (`census_tracts_2025`) |
 | 2.3 | Subdivide SLR polygons | `create_state_slr_subdivided_v5.R` | 231 tables (`slr_Xft_FF`) |
@@ -123,10 +123,18 @@ NJ, NY, OR, RI, SC, TX, VA, WA
 
 ## Authors
 
-Nora Schwaller (UCSD) \
+Nora Schwaller (UCSD)\
 Mathew Schwaller
 
 ## Data Archival
 
 Final spatial data products will be archived via Dryad. Code archived in
 this GitHub repository.
+
+## Citation
+
+If you use this code, please cite:
+
+Schwaller, Mathew R. and Nora L. Schwaller. (2026). megaSLR coastal
+flooding analysis pipeline (v1.0.0). Zenodo.
+<https://doi.org/10.5281/zenodo.19652441>
