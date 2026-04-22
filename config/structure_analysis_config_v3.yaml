@@ -17,8 +17,8 @@ mode:
 
 # Geographic Scope
 # ------------------------------------------------------------------------------
-# All 21 coastal states:
-states: ["01","06","09","10","12","13","22","23","24","25","28","33","34","36","37","41","44","45","48","51","53"]
+# All 23 states/territories (original 21 coastal states + PA + DC):
+states: ["01","06","09","10","11","12","13","22","23","24","25","28","33","34","36","37","41","42","44","45","48","51","53"]
 
 # Coastal states for 7 April 2026 launch_subdivide_parallel_v1.R run:
 # Wave #1: ME, MD, MA, NH, RI, SC
@@ -32,6 +32,7 @@ test_counties:
   "06": "037"                   # CA - Los Angeles
   "09": "009"                   # CT - New Haven
   "10": "005"                   # DE - Sussex
+  "11": "001"                   # DC - District of Columbia
   "12": "086"                   # FL - Miami-Dade
   "13": "051"                   # GA - Chatham (Savannah)
   "22": "071"                   # LA - Orleans
@@ -44,6 +45,7 @@ test_counties:
   "36": "047"                   # NY - Kings (Brooklyn)
   "37": "019"                   # NC - Brunswick
   "41": "007"                   # OR - Clatsop (Astoria)
+  "42": "101"                   # PA - Philadelphia
   "44": "003"                   # RI - Kent
   "45": "019"                   # SC - Charleston
   "48": "167"                   # TX - Galveston
