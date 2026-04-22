@@ -271,6 +271,7 @@ CODE  State Name
 06    California
 09    Connecticut  
 10    Delaware
+11    Washington DC
 12    Florida
 13    Georgia
 22    Louisiana
@@ -283,6 +284,7 @@ CODE  State Name
 36    New York
 37    North Carolina
 41    Oregon
+42    Pennsylvania
 44    Rhode Island
 45    South Carolina
 48    Texas
@@ -294,7 +296,7 @@ We used the following Linux bash commands to import the TIGER2025 tract shapefil
 
 ``` bash
 BASE_URL="https://www2.census.gov/geo/tiger/TIGER2025/TRACT"
-COASTAL_FIPS="01 02 06 09 10 12 13 15 22 23 24 25 28 33 34 36 37 41 44 45 48 51 53 72 78"
+COASTAL_FIPS="01 02 06 09 10 11 12 13 15 22 23 24 25 28 33 34 36 37 41 42 44 45 48 51 53 72 78"
 
 mkdir -p ~/Desktop/census_tracts_2025
 cd ~/Desktop/census_tracts_2025
@@ -311,7 +313,7 @@ echo "All coastal states downloaded!"
 
 # Load each state separately
 # NOT loading AK, HI and Caribbean
-for fips in 01 06 09 10 12 13 22 23 24 25 28 33 34 36 37 41 44 45 48 51 53; do
+for fips in 01 06 09 10 11 12 13 22 23 24 25 28 33 34 36 37 41 42 44 45 48 51 53; do
   echo "Loading FIPS ${fips}..."
   shp2pgsql -s 4269:5070 -a tl_2025_${fips}_tract.shp census_tracts_2025 | psql -U matt -d megaSLR
 done
