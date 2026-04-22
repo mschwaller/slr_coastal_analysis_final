@@ -75,7 +75,7 @@ paths:
 # Structure Loading Parameters (used by load_structures_to_db_v2.R)
 # ------------------------------------------------------------------------------
 load_structures:
-  skip_if_exists: false
+  skip_if_exists: true           # set to true to just process PA and DC for this run
   overwrite_existing: true
   create_spatial_index: true
 
