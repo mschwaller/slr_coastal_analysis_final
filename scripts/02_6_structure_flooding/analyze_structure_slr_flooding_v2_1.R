@@ -34,6 +34,7 @@ STATE_TO_REGION <- list(
   "06" = "west",     # California
   "09" = "atlantic", # Connecticut
   "10" = "atlantic", # Delaware
+  "11" = "atlantic", # DC
   "12" = "florida",  # Florida
   "13" = "atlantic", # Georgia
   "22" = "la",       # Louisiana
@@ -46,6 +47,7 @@ STATE_TO_REGION <- list(
   "36" = "atlantic", # New York
   "37" = "atlantic", # North Carolina
   "41" = "west",     # Oregon
+  "42" = "atlantic", # Pennsylvania
   "44" = "atlantic", # Rhode Island
   "45" = "atlantic", # South Carolina
   "48" = "tx",       # Texas
@@ -55,11 +57,11 @@ STATE_TO_REGION <- list(
 
 # State FIPS to abbreviation
 FIPS_TO_STATE <- list(
-  "01" = "AL", "06" = "CA", "09" = "CT", "10" = "DE", "12" = "FL",
-  "13" = "GA", "22" = "LA", "23" = "ME", "24" = "MD", "25" = "MA",
-  "28" = "MS", "33" = "NH", "34" = "NJ", "36" = "NY", "37" = "NC",
-  "41" = "OR", "44" = "RI", "45" = "SC", "48" = "TX", "51" = "VA",
-  "53" = "WA"
+  "01" = "AL",  "06" = "CA",  "09" = "CT",  "10" = "DE",  "11" = "DC",
+  "12" = "FL",  "13" = "GA",  "22" = "LA",  "23" = "ME",  "24" = "MD",
+  "25" = "MA",  "28" = "MS",  "33" = "NH",  "34" = "NJ",  "36" = "NY",
+  "37" = "NC",  "41" = "OR",  "42" = "PA",  "44" = "RI",  "45" = "SC",
+  "48" = "TX",  "51" = "VA",  "53" = "WA"
 )
 
 # ==============================================================================

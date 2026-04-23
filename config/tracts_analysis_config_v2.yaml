@@ -46,9 +46,6 @@ states:
  - "51"   # VA
  - "53"   # WA
 
-#states:
-# - "44"   # RI
-
 # SLR Scenarios to process (loops over all in a single run)
 # ------------------------------------------------------------------------------
 # Table naming: slr_{scenario}_{fips}  (input)
