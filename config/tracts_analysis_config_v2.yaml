@@ -21,30 +21,33 @@ mode:
 # Geographic Scope — 21 coastal states (FIPS codes)
 # ------------------------------------------------------------------------------
 # These must match the subdivided SLR table suffixes: slr_{scenario}_{fips}
-states:
- - "01"   # AL
- - "06"   # CA
- - "09"   # CT
- - "10"   # DE
+# states:
+# - "01"   # AL
+# - "06"   # CA
+# - "09"   # CT
+# - "10"   # DE
+# - "11"   # DC
+# - "12"   # FL
+# - "13"   # GA
+# - "22"   # LA
+# - "23"   # ME
+# - "24"   # MD
+# - "25"   # MA
+# - "28"   # MS
+# - "33"   # NH
+# - "34"   # NJ
+# - "36"   # NY
+# - "37"   # NC
+# - "41"   # OR
+# - "42"   # PA
+# - "44"   # RI
+# - "45"   # SC
+# - "48"   # TX
+# - "51"   # VA
+# - "53"   # WA
+states: 
  - "11"   # DC
- - "12"   # FL
- - "13"   # GA
- - "22"   # LA
- - "23"   # ME
- - "24"   # MD
- - "25"   # MA
- - "28"   # MS
- - "33"   # NH
- - "34"   # NJ
- - "36"   # NY
- - "37"   # NC
- - "41"   # OR
  - "42"   # PA
- - "44"   # RI
- - "45"   # SC
- - "48"   # TX
- - "51"   # VA
- - "53"   # WA
 
 # SLR Scenarios to process (loops over all in a single run)
 # ------------------------------------------------------------------------------
