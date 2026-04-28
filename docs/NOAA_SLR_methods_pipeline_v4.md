@@ -4,11 +4,11 @@
 
 # 1. Overview
 
-Sea level rise (SLR) appears to be an inevitable consequence of atmospheric carbon dioxide content that has increased by 50% since pre-industrial levels, and that continues to increase at an accelerating pace. While there is considerable uncertainty about the timing and magnitude of SLR it is clear that coastal infrastructure will be increasingly and often catastrophically inundated within the span of one or 2 human lifetimes. To help predict these impacts we combine 3 open source datasets to evaluate inundation of coastal Census tracts and FEMA structures of the conterminous United States at levels of SLR from 0 to 10 feet. As described in detail below, the sources for this assessment include a NOAA SLR dataset, Census tracts from the TIGER database, and FEMA's inventory of U.S. structures. These sources are combined into a derived dataset that identifies which tracts and structures are inundated at incremental levels of SLR. The derived dataset can be used to "create your own disaster" (CYOD) for SLR levels of 0 to 10 feet above current Mean Higher High Water conditions.
+Sea level rise (SLR) appears to be an inevitable consequence of atmospheric carbon dioxide content that has increased by 50% since pre-industrial levels and that continues to increase at an accelerating pace. While there is considerable uncertainty about the timing and magnitude of SLR it is clear that coastal infrastructure will be increasingly and often catastrophically inundated within the span of one or 2 human lifetimes. To help predict these impacts we combine 3 open source datasets to evaluate inundation of coastal Census tracts and FEMA structures of the conterminous United States at levels of SLR from 0 to 10 feet. As described in detail below, the sources for this assessment include a NOAA SLR dataset, Census tracts from the TIGER database, and FEMA's inventory of U.S. structures. These sources are combined into a derived dataset that identifies which tracts and structures are inundated at incremental levels of SLR. The derived dataset can be used to "create your own disaster" (CYOD) for SLR levels of 0 to 10 feet above current Mean Higher High Water conditions.
 
 This document describes the source data and the data processing pipeline used to create the CYOD dataset.
 
-**Scale:** 21 coastal states · 11 SLR scenarios (0ft–10ft) · \~49,500 Census tracts · \~101K–3.8M flooded structures (varying by SLR level)\
+**Scale:** 23 coastal states · 11 SLR scenarios (0ft–10ft) · \~53,150 Census tracts · \~101K–3.8M flooded structures (varying by SLR level)\
 **Infrastructure:** PostgreSQL/PostGIS on an Ubuntu 32-core, 128 GB RAM AMD Threadripper workstation\
 **Primary language:** R (with PostGIS for spatial computation)
 
@@ -33,13 +33,13 @@ Below is a brief description of the source data, with additional detail provided
 
 -   **Source:** FEMA USA Structures geodatabases
 -   **Format:** Per-state file geodatabases containing building footprint polygons and additional attributes
--   **Coverage:** All 21 coastal states
+-   **Coverage:** All 23 coastal and riparian intertidal states
 
 ## 1.2 Pipeline Architecture Overview
 
 This is a brief description of the database and scripts used to generate the CYOD dataset, with additional details provided in subsequent sections.
 
-**Coordinate Reference System (CRS)**. The native CRS for the NOAA SLR shapefiles is EPSG:4269, the North American Datum 1983 (NAD83), which is expressed as geographical coordinates in latitude and longitude. This CRS is not convenient because length and area of SLR shapefile polygons are calculated in degrees (length) and degrees^2^ (area). We transform the EPSG:4269 coordinates to EPSG:5070 which uses the same NAD83 geoid but maps the coordinates to the Conus Albers projection which is expressed in meters of northing and easting. Using EPSG:5070 expresses the SLR multipolygons in meters (length) and meters^2^ (area). Using this equal area CRS also speeds up the spatial features operations compared to working with degrees of latitude and longitude. Thus, EPSG:5070 is the target CRS applied to all SLR polygons, Census tracts (native CRS EPSG:4269), and FEMA structures (native CRS EPSG:4326); EPSG:5070 is also used in all scripts, queries and calculations.
+**Coordinate Reference System (CRS)**. The native CRS for the NOAA SLR shapefiles is EPSG:4269, the North American Datum 1983 (NAD83), which is expressed as geographical coordinates in latitude and longitude. This CRS is not convenient because the native length and area of SLR shapefile polygons are calculated in degrees (length) and degrees^2^ (area). We transform the EPSG:4269 coordinates to EPSG:5070 which uses the same NAD83 geoid but maps the coordinates to the Conus Albers projection which is expressed in meters of northing and easting. Using EPSG:5070 expresses the SLR multipolygons in meters (length) and meters^2^ (area). Using this equal area CRS also speeds up the spatial features operations compared to working with degrees of latitude and longitude. Thus, EPSG:5070 is the target CRS applied to all SLR polygons, Census tracts (native CRS EPSG:4269), and FEMA structures (native CRS EPSG:4326); EPSG:5070 is also used in all scripts, queries and calculations.
 
 ### Data Ingest
 
@@ -47,16 +47,16 @@ This is a brief description of the database and scripts used to generate the CYO
 
 -   **SLR shapefiles** were acquired from the NOAA website <https://coast.noaa.gov/slrdata/Ancillary/index.html> using the R script `NOAA_SLR_downloader_v3.R,` with parameters for this script set in the configuration file `NOAA_downloads_config_v1.yaml`. The shapefiles are stored in subdirectories as defined in the yaml config file. A set of bash commands including GDAL's `ogr2ogr()` was used to ingest the shapefiles into megaSLR as psql tables, with one table per SLR level, per coastal region (using the 6 NOAA-defined SLR regions: atlantic, florida, la, ms_al, tx and west), from 0ft to 10ft; a total of 66 SLR tables consisting of 11,446,885 SLR polygons, with a table naming convention of slr_Xft_region (with X = 0 to 10, and region = the 6 SLR regions defined earlier).
 
--   **Census Tracts** were acquired for the coastal US states from the website <https://www2.census.gov/geo/tiger/TIGER2025/TRACT> using bash wget and saved to disk as ESRI shapefiles. A set of bash commands including GDAL's `shp2pgsql()` were used to ingest the shapefiles into megaSLR as a single psql table named census_tracts_2025 with 49,502 tract polygons.
+-   **Census Tracts** were acquired for the US coastal and intertidal riparian states from the website <https://www2.census.gov/geo/tiger/TIGER2025/TRACT> using bash wget and saved to disk as ESRI shapefiles. A set of bash commands including GDAL's `shp2pgsql()` were used to ingest the shapefiles into megaSLR as a single psql table named census_tracts_2025 with 53,154 tract polygons.
 
--   **FEMA Structures** were acquired from the site <https://gis-fema.hub.arcgis.com/pages/usa-structures> using bash wget and saved to disk in the file's native ESRI geodatabase (.gdb) format. The script `load_structures_to_db_v2.R` was used to import the structures into the megaSLR database using GDAL's `ogr2ogr()`, with one structures table for each of 21 coastal states. This script is controlled by the config file `structure_analysis_config_v3.yaml`. Note that the load_structures script used tract-based pre-filtering to keep only structures in SLR-affected Census tracts, and is therefore dependent on the presence the 10 ft Census tract table `tract_10ft_intersections` (see Section 2.4 for how this table and associated intersections tables were generated). The 21 structures tables consist of 14,101,005 structure polygons, named usa_structures_FF with FF = the 2-digit FIPS code for the coastal US states.
+-   **FEMA Structures** were acquired from the site <https://gis-fema.hub.arcgis.com/pages/usa-structures> using bash wget and saved to disk in the file's native ESRI geodatabase (.gdb) format. The script `load_structures_to_db_v2.R` was used to import the structures into the megaSLR database using GDAL's `ogr2ogr()`, with one structures table for each of 23 coastal/tidal states. This script is controlled by the config file `structure_analysis_config_v3.yaml`. Note that the load_structures script used tract-based pre-filtering to keep only structures in SLR-affected Census tracts, and is therefore dependent on the presence the 10 ft Census tract table `tract_10ft_intersections` (see Section 2.4 for how this table and associated intersections tables were generated). The 23 structures tables consist of `14,196,149` structure polygons, named usa_structures_FF with FF = the 2-digit FIPS code for the coastal US states.
 
 ### Pre-Processing
 
--   **SLR polygons were subdivided** using the script `create_state_slr_subdivided_v5.R` and config file `structure_analysis_config_v3.yaml`. The script creates per-state SLR tables by clipping regional SLR polygons to each state's Census tract extent and crucially by subdividing complex SLR polygons using `ST_Subdivide`. Subdividing complex SLR polygons dramatically improves `ST_Intersects` performance by producing smaller polygons with tighter bounding boxes, which 1) greatly reduces the number of false-positive spatial index hits, and 2) reduces the computational cost of exact geometry tests against polygons that may have millions of vertices. For example, 98% of Louisiana's 0ft SLR polygons have fewer than 50 vertices, but a small number of polygons with \>1k vertices (and one polygon with almost 7M vertices) dominates the computational load. After subdivision, each SLR polygon has a maximum of 256 vertices. The total geometric information is identical — subdivision is lossless — but the spatial index efficiently filters candidates using tight bounding boxes around spatially compact sub-polygons, instead of huge bounding boxes spanning complex coastal geometries. The naming convention for the 231 subdivided tables is slr_Xft_FF with X = 0 to 10 and FF = the 21 FIPS codes for the coastal US states (231 tables).
+-   **SLR polygons were subdivided** using the script `create_state_slr_subdivided_v5.R` and config file `structure_analysis_config_v3.yaml`. The script creates per-state SLR tables by clipping regional SLR polygons to each state's Census tract extent and crucially by subdividing complex SLR polygons using `ST_Subdivide`. Subdividing complex SLR polygons dramatically improves `ST_Intersects` performance by producing smaller polygons with tighter bounding boxes, which 1) greatly reduces the number of false-positive spatial index hits, and 2) reduces the computational cost of exact geometry tests against polygons that may have millions of vertices. For example, 98% of Louisiana's 0ft SLR polygons have fewer than 50 vertices, but a small number of polygons with \>1k vertices (and one polygon with almost 7M vertices) dominates the computational load. After subdivision, each SLR polygon has a maximum of 256 vertices. The total geometric information is identical — subdivision is lossless — but the spatial index efficiently filters candidates using tight bounding boxes around spatially compact sub-polygons, instead of huge bounding boxes spanning complex coastal geometries. The naming convention for the 253 subdivided tables is slr_Xft_FF with X = 0 to 10 and FF = the 23 FIPS codes for the coastal US states (253 tables).
 
 ```         
- Louisiana SLR: distribution of the number of vertices per SLR polygon.
+ Louisiana SLRexample: distribution of the number of vertices per SLR polygon.
  
     before subdivision                after subdivision
  # vertices | # polygons           # vertices | # polygons 
@@ -76,16 +76,14 @@ This is a brief description of the database and scripts used to generate the CYO
 ### Census Tracts and FEMA Structures: Intersections with SLR Levels
 
 -   **Census tracts intersections with SLR levels** were computed using the script `analyze_tract_slr_intersections_v5_1.R` and the config file `tracts_analysis_config_v2.yaml`. The script computes area-based intersections between Census tracts and pre-subdivided, state-partitioned SLR flood polygons. The script generated 11 database tables with the naming convention `tract_Xft_intersections` with X = 0 to 10.
--   **FEMA structures intersections with SLR levels** were computed using the script `analyze_structure_slr_flooding_v2_1.R` and the config file `structure_analysis_config_v3.yaml`. The script performs boolean `ST_Intersects` between pre-filtered structure tables and per-state, per-SLR subdivided tables (`slr_Xft_FF`) to identify flooded structures at each SLR level. The script generated 231 database tables with the naming convention `flooded_structures_FF_Xft`, where FF = 2-digit state FIPS code and X = SLR level (0 to 10, in feet).
+-   **FEMA structures intersections with SLR levels** were computed using the script `analyze_structure_slr_flooding_v2_1.R` and the config file `structure_analysis_config_v3.yaml`. The script performs boolean `ST_Intersects` between pre-filtered structure tables and per-state, per-SLR subdivided tables (`slr_Xft_FF`) to identify flooded structures at each SLR level. The script generated 253 database tables with the naming convention `flooded_structures_FF_Xft`, where FF = 2-digit state FIPS code for each of 23 states, and X = SLR level (0 to 10, in feet).
 
 ### Data Export
 
--   **Export of flooded structures** is performed using the script `export_flooded_structures_v2.R`. This script saves flooded_structures tables from megaSLR to disk as Open Geospatial Consortium formatted GeoPackage files with one GPKG per state, and with SLR_0ft to SLR_10ft as separate layers in each GPKG. The file naming convention for the exported files is flooded_structures_SS.gpkg where SS = one of AL, CA, CT, DE, FL, GA, LA, MA, MD, ME, MS, NC, NH, NJ, NY, OR, RI, SC, TX, VA, WA.
--   **Export of flooded tracts** is performed using the script `export_flooded_tracts_v1.R` and the config file `tracts_analysis_config_v2.yaml`. This script reads tract intersection tables from megaSLR, filters by state, and exports to GeoPackage files with one GPKG per state and SLR_0ft to SLR_10ft as separate layers. The file naming convention is `flooded_tracts_SS.gpkg` where SS = state abbreviation.
+-   **Export of flooded structures** is performed using the script `export_flooded_structures_v2.R`. This script saves flooded_structures tables from megaSLR to disk as Open Geospatial Consortium formatted GeoPackage files with one GPKG per state, and with SLR_0ft to SLR_10ft as separate layers in each GPKG. The file naming convention for the exported files is flooded_structures_SS.gpkg where SS = one of AL, CA, CT, DC, DE, FL, GA, LA, MA, MD, ME, MS, NC, NH, NJ, NY, OR, PA, RI, SC, TX, VA, WA.
+-   **Export of flooded tracts** is performed using the script `export_flooded_tracts_v1.R` and the config file `tracts_analysis_config_v2_1.yaml`. This script reads tract intersection tables from megaSLR, filters by state, and exports to GeoPackage files with one GPKG per state and SLR_0ft to SLR_10ft as separate layers. The file naming convention is `flooded_tracts_SS.gpkg` where SS = state abbreviation.
 
 The CYOD processing pipeline is summarized below as an illustration with color representations as follows: coral for external data sources, teal for all database tables, purple for exported files
-
-![](images/pipeline_flow2.png)
 
 # 2. Processing Pipeline Details
 
@@ -102,7 +100,7 @@ The table below is roadmap for the processing pipeline indicating the source fil
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.2** AddCensus Tracts)                      |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
-| `slr_Xft_region`\                               | `create_state_slr_subdivided_v5.R` + `structure_analysis_config_v3.yaml`      | `slr_Xft_FF`                 | X = 0–10, FF = 21 FIPS codes                              | 231 tables        |
+| `slr_Xft_region`\                               | `create_state_slr_subdivided_v5.R` + `structure_analysis_config_v3.yaml`      | `slr_Xft_FF`                 | X = 0–10, FF = 23 FIPS codes                              | 253 tables        |
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.3** Subdivide SLR Polygons)                |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
@@ -110,19 +108,19 @@ The table below is roadmap for the processing pipeline indicating the source fil
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.4** Tract Intersections with SLR Polygons) |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
-| FEMA .gdb + `tract_10ft_intersections`\         | `load_structures_to_db_v2.R` + `structure_analysis_config_v3.yaml`            | `usa_structures_FF`          | FF = 21 FIPS codes                                        | 21 tables         |
+| FEMA .gdb + `tract_10ft_intersections`\         | `load_structures_to_db_v2.R` + `structure_analysis_config_v3.yaml`            | `usa_structures_FF`          | FF = 23 FIPS codes                                        | 23 tables         |
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.5** Add Structures)                        |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
-| `usa_structures_FF` + `slr_Xft_FF`\             | `analyze_structure_slr_flooding_v2_1.R` + `structure_analysis_config_v3.yaml` | `flooded_structures_FF_Xft`  | FF = 21 FIPS codes, X = 0–10                              | 231 tables        |
+| `usa_structures_FF` + `slr_Xft_FF`\             | `analyze_structure_slr_flooding_v2_1.R` + `structure_analysis_config_v3.yaml` | `flooded_structures_FF_Xft`  | FF = 23 FIPS codes, X = 0–10                              | 253 tables        |
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.6** Add Flooded Structures Tables)         |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
-| `flooded_structures_FF_Xft`\                    | `export_flooded_structures_v2.R` + `tracts_analysis_config_v3.yaml`           | `flooded_structures_SS.gpkg` | SS = state abbreviation                                   | 21 files          |
+| `flooded_structures_FF_Xft`\                    | `export_flooded_structures_v2.R` + `tracts_analysis_config_v3.yaml`           | `flooded_structures_SS.gpkg` | SS = state abbreviation                                   | 23 files          |
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.7** Export Flooded Structures)             |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
-| `tract_Xft_intersections`\                      | `export_flooded_tracts_v1.R` + `tracts_analysis_config_v2.yaml` \`            | `flooded_tracts_SS.gpkg`     | SS = state abbreviation                                   | 21 files          |
+| `tract_Xft_intersections`\                      | `export_flooded_tracts_v1.R` + `tracts_analysis_config_v2.yaml` \`            | `flooded_tracts_SS.gpkg`     | SS = state abbreviation                                   | 23 files          |
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.8** Export Flooded Tracts)                 |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
@@ -311,6 +309,7 @@ done
 
 echo "All coastal states downloaded!"
 
+
 # Load each state separately
 # NOT loading AK, HI and Caribbean
 for fips in 01 06 09 10 11 12 13 22 23 24 25 28 33 34 36 37 41 42 44 45 48 51 53; do
@@ -375,7 +374,7 @@ Tract polygons provide a fairly fine-grained geographic resolution of neighborho
 
 ## 2.3 Subdivide SLR Polygons
 
-As mentioned above (Section 1.2) SLR polygons were subdivided to improve performance using the script `create_state_slr_subdivided_v5.R` and config file `structure_analysis_config_v3.yaml`. The script creates 231 per-state SLR tables (`slr_Xft_FF`) by clipping regional SLR polygons to each state's census tract extent and subdividing complex polygons using PostGIS's `ST_Subdivide` function.
+As mentioned above (Section 1.2) SLR polygons were subdivided to improve performance using the script `create_state_slr_subdivided_v5.R` and config file `structure_analysis_config_v3.yaml`. The script creates 253 per-state SLR tables (`slr_Xft_FF`) by clipping regional SLR polygons to each state's census tract extent and subdividing complex polygons using PostGIS's `ST_Subdivide` function.
 
 The script processes each state × scenario combination as follows:
 
@@ -425,7 +424,7 @@ PostgreSQL session settings used during subdivision (hard coded in the R script)
 Per-state subdivided SLR tables named `slr_{scenario}_{state_fips}`:
 
 -   Example: `slr_0ft_10` (Delaware, 0ft scenario)
--   231 tables total (11 scenarios × 21 states)
+-   253 tables total (11 scenarios × 23 states)
 -   Each table has a single `geom` column with a GIST spatial index
 -   `ANALYZE` is run on each table after index creation
 
@@ -460,7 +459,7 @@ SLR_AREA_HA: Tract area inundated by SLR in hectare
 
 ### Method
 
-For each state and SLR scenario, the script `analyze_tract_slr_intersections_v5_1.R` executes a single SQL query that joins all census tracts in the state (filtered by `statefp`) against the corresponding subdivided SLR table (`slr_{scenario}_{fips}`). For each tract that intersects at least one SLR polygon, the query computes the total area of the tract in hectares and the area of the tract inundated by SLR in hectares. The inundated area is computed as `ST_Area(ST_Intersection(ST_Union(s.geom), t.geom))`. The `ST_Union` step is necessary because NOAA source polygons can overlap within a scenario — for example, in the Florida Keys, a single tract may intersect nearly 1,000 subdivided SLR polygons, some derived from overlapping source features. Without the union, summing individual intersection areas would overcount the area of inundation.
+For each state and SLR scenario, the script `analyze_tract_slr_intersections_v5_1.R` executes a single SQL query that joins all census tracts in the state (filtered by `statefp`) against the corresponding subdivided SLR table (`slr_{scenario}_{fips}`). For each tract that intersects at least one SLR polygon, the query computes the total area of the tract in hectare and the area of the tract inundated by SLR in hectare. The inundated area is computed as `ST_Area(ST_Intersection(ST_Union(s.geom), t.geom))`. The `ST_Union` step is necessary because NOAA source polygons can overlap within a scenario — for example, in the Florida Keys, a single tract may intersect nearly 1,000 subdivided SLR polygons, some derived from overlapping source features. Without the union, summing individual intersection areas would overcount the area of inundation.
 
 Results for each state are inserted into a per-state output table (e.g., `tract_0ft_intersections_12` for Florida). After all states complete, per-state tables are combined into the final `tract_Xft_intersections` tables.
 
@@ -478,14 +477,14 @@ Rscript launch_tract_intersections_parallel_v1.R config.yaml
 Rscript launch_tract_intersections_parallel_v1.R config.yaml 10 12 13 22 37 48 51
 ```
 
-When state FIPS codes are provided on the command line, the launcher processes only those states; otherwise it uses the full state list from the YAML config. The launcher performs a pre-launch memory check — estimating \~6 GB per concurrent session (3 PostgreSQL processes × 2 GB `work_mem`) plus 16 GB reserved for the OS and PostgreSQL shared buffers — and aborts with a log message if available memory is insufficient. Screen sessions close automatically when their R script completes, so finished sessions do not inflate the resource check for subsequent launches.
+When state FIPS codes are provided on the Rscript command line, the launcher processes only those states; otherwise it uses the full state list from the YAML config. The launcher performs a pre-launch memory check — estimating \~6 GB per concurrent session (3 PostgreSQL processes × 2 GB `work_mem`) plus 16 GB reserved for the OS and PostgreSQL shared buffers — and aborts with a log message if available memory is insufficient. Screen sessions close automatically when their R script completes, so finished sessions do not inflate the resource check for subsequent launches.
 
 Each state gets a screen session named `tract_XX` (e.g., `tract_12` for Florida):
 
 ``` bash
 screen -ls             # list all sessions
 screen -r tract_12     # attach to FL session
-Ctrl+A, d             # detach
+Ctrl+A, d              # detach
 ```
 
 #### Two-wave execution strategy
@@ -507,6 +506,8 @@ DE FL GA LA NC TX VA
 ```
 
 The `ST_Union` computation is the primary bottleneck in wave 2, particularly for tracts with dense SLR polygon coverage (e.g., Florida Keys, Louisiana coast).
+
+Pennsylvania (FIPS 42) and Washington DC (FIPS 11) were somhow "forgotten" in the original analysis, and were added after the original 21-state pipeline was complete.
 
 #### Louisiana: bespoke per-tract multi-pass processing
 
@@ -561,11 +562,11 @@ GROUP BY t.geoid, t.namelsad, t.statefp, t.geom;
 
 Per-tract runtimes for the holdout tracts ranged from 10 minutes to nearly 9 hours for a given SLR_level. The two most expensive tracts were 22109001400 and 22109001502 in Vermilion Parish (8h 52m and 5h 20m respectively at 0ft), followed by 22113951100 also in Vermilion Parish (4h 4m at 0ft and 1ft). All Louisiana tracts were ultimately completed using the exact `ST_Union` method.
 
-**SUM vs. ST_Union validation.** Testing the SUM approximation (`SUM(ST_Area(ST_Intersection(...)))`, which skips `ST_Union`) revealed that the overcount from overlapping NOAA source polygons varies substantially by location. Measured differences ranged from 0.1% (tract 22023970102 in Assumption Parish) to 0.24% (tract 22109001400 in Vermilion Parish) to 27% (tract 22047952701 in Iberville Parish, in the Atchafalaya Basin). The large variance makes the SUM method unsuitable as a general-purpose fallback without per-tract validation, reinforcing the decision to complete all tracts with `ST_Union`.
+**SUM vs. ST_Union validation.** We were tempted to use the SUM approximation (`SUM(ST_Area(ST_Intersection(...)))`, which skips `ST_Union`) and greatly speeds up processing. Test runs, however, revealed that the SUM( ) overcount from overlapping NOAA source polygons varies substantially by location. Measured differences between SUM( ) and ST_Union( ) ranged from 0.1% (tract 22023970102 in Assumption Parish) to 0.24% (tract 22109001400 in Vermilion Parish) to 27% (tract 22047952701 in Iberville Parish, in the Atchafalaya Basin). The large variance makes the SUM method unsuitable as a general-purpose fallback without per-tract validation, reinforcing the decision to complete all tracts with `ST_Union`.
 
-**Monotonic row growth with SLR level (and an exception)**. There is steady growth in the number of inundated tracts with increasing SLR height over all coastal states: 6,746 tracts at 0ft, 6,945 at 1ft, 7,179 at 2ft, 7,404 at 3ft, 7,747 at 4ft, 8,206 at 5ft, 8,734 at 6ft, 9,232 at 7ft, 9,631 at 8ft, 9,957 at 9ft, 10,255 at 10ft. This monotonic behavior is expected as SLR inundates progressively more tracts at increasing SLR heights; any deviation may indicate errors in the pipeline methodology or the source data.
+**Monotonic row growth with SLR level (and an exception)**. There is steady growth in the number of inundated tracts with increasing SLR height over all coastal/tidal states: 6,859 tracts at 0ft, 7,060 at 1ft, 7,298 at 2ft, 7,528 at 3ft, 7,871 at 4ft, 8,332 at 5ft, 8,866 at 6ft, 9,371 at 7ft, 9,789 at 8ft, 10,125 at 9ft, 10,426 at 10ft. This monotonic behavior is expected as SLR inundates progressively more tracts at increasing SLR heights; any deviation may indicate errors in the pipeline methodology or the source data.
 
-Note that 7 Maine tracts appear in the 9ft tract intersection table `tract_9ft_intersections` but not the 10ft table `tract_10ft_intersections`, producing minor non-monotonic behavior in tract counts for that state. All 7 tracts have flooded areas below 0.008% of tract area — orders of magnitude below the meaningful resolution of the source data. [NOAA's documentation](https://coast.noaa.gov/data/digitalcoast/pdf/slr-faq.pdf) notes that the underlying lidar DEMs have a vertical accuracy of ≤10 cm RMSE and recommends rounding results to the nearest one-foot; sub-foot polygon boundary differences between the 9ft and 10ft scenarios are therefore within the expected uncertainty of the product. Most importantly, *none of the flooded areas within these 7 tracts contain any flooded structures*. While the 7 tract-scenario intersections are retained in the tract tables as, they are attributable to sub-pixel geometry precision effects at polygon boundaries rather than genuine inundation differences between scenarios.
+Note that 7 Maine tracts appear in the 9ft tract intersection table `tract_9ft_intersections` but not the 10ft table `tract_10ft_intersections`, producing minor non-monotonic behavior in tract counts for that state. All 7 tracts have flooded areas below 0.008% of tract area — orders of magnitude below the meaningful resolution of the source data. [NOAA's documentation](https://coast.noaa.gov/data/digitalcoast/pdf/slr-faq.pdf) notes that the underlying lidar DEMs have a vertical accuracy of ≤10 cm RMSE and recommends rounding results to the nearest one-foot; sub-foot polygon boundary differences between the 9ft and 10ft scenarios are therefore within the expected uncertainty of the product. Most importantly, *none of the flooded areas within these 7 tracts contain any flooded structures*. While the 7 tract-scenario intersections are retained in the tract tables as is, they are attributable to sub-pixel geometry precision effects at polygon boundaries rather than genuine inundation differences between scenarios.
 
 These are the 7 Maine tracts identified by `geoid` that are found in the table `tract_9ft_intersections` but not in the table `tract_10ft_intersections` along with the 9 ft flooded area in hectare `slr_area_ha`, the total tract area `tract_area_ha`, the percent of the tract flooded at this level `pct_flooded`, and the number of structures found within the SLR flooded area for each tract `flooded_structures`. Note that these 7 tracts are also included in the GeoPackage file `flooded_tracts_ME.gpkg` (see Section 2.8).
 
@@ -624,7 +625,7 @@ This is repeated for all 11 scenarios (0ft through 10ft). Per-state tables are d
 
 ### Prerequisites
 
--   **Subdivided SLR tables**: `slr_{scenario}_{fips}` for all 21 states × 11 scenarios (231 tables, produced by Section 2.3).
+-   **Subdivided SLR tables**: `slr_{scenario}_{fips}` for all 24 states × 11 scenarios (253 tables, produced by Section 2.3).
 -   **Census tracts table** (`census_tracts_2025`) with GiST spatial index on `geom` and `statefp` column.
 
 ### Outputs
@@ -745,7 +746,7 @@ Rscript load_structures_ct_fix.R \
 Per-state structure tables in the megaSLR `public` schema:
 
 -   Naming convention: `usa_structures_FF` where FF is the 2-digit state FIPS code (e.g., `usa_structures_12` for Florida)
--   21 tables total
+-   23 tables total
 -   Columns: all original [FEMA attributes](https://gis-fema.hub.arcgis.com/datasets/fedmaps::usa-structures/about) plus `tract_geoid` from the pre-filter JOIN
 
 ```         
@@ -766,15 +767,16 @@ Per-state structure tables in the megaSLR `public` schema:
 ```
 
 -   GIST spatial index on `geom`
--   Total: 14,101,005 structure polygons across all 21 states (72,913,047 loaded from .gdb; 18.9% retained after filtering, plus 335,157 from the CT fix)
+-   Total: `14,196,149` structure polygons across all 23 states (`77,965,151` loaded from .gdb; 18.9% retained after filtering, plus 335,157 from the CT fix)
 
 ```         
 State  Loaded       Filtered    Kept %    State  Loaded       Filtered    Kept %
 AL     2,771,976      203,863    7.4%     NH       561,848      45,065    8.0%
 CA    10,931,401    1,005,204    9.2%     NJ     2,581,846     852,463   33.0%
 CT     1,182,437      335,157   28.3%     NY     5,015,922     717,418   14.3%
-DE       383,131      234,385   61.2%     NC     5,299,008     671,634   12.7%
-FL     7,792,420    3,989,084   51.2%     OR     1,699,221     187,887   11.1%
+DC        64,701       10,745   16.6%     NC     5,299,008     671,634   12.7%
+DE       383,131      234,385   61.2%     OR     1,699,221     187,887   11.1%
+FL     7,792,420    3,989,084   51.2%     PA     4,987,403      84,399    1.7%
 GA     4,342,910      233,933    5.4%     RI       367,168     160,575   43.7%
 LA     2,439,867      989,769   40.6%     SC     2,604,892     550,598   21.1%
 ME       764,623      290,063   37.9%     TX    12,311,384     828,427    6.7%
@@ -797,7 +799,7 @@ MS     1,736,779      167,798    9.7%
 
 ## 2.6 Generate Flooded Structures Tables
 
-The script `analyze_structure_slr_flooding_v2_1.R` and its companion config file `structure_analysis_config_v3.yaml` determine which pre-filtered structures (from Section 2.5) intersect SLR inundation polygons (from Section 2.3) at each of the 11 SLR scenarios. The script generates 231 output tables with the naming convention `flooded_structures_FF_Xft`, where FF = 2-digit state FIPS code and X = SLR level (0 to 10, in feet).
+The script `analyze_structure_slr_flooding_v2_1.R` and its companion config file `structure_analysis_config_v3.yaml` determine which pre-filtered structures (from Section 2.5) intersect SLR inundation polygons (from Section 2.3) at each of the 11 SLR scenarios. The script generates 253 output tables with the naming convention `flooded_structures_FF_Xft`, where FF = 2-digit state FIPS code and X = SLR level (0 to 10, in feet).
 
 Each output row contains the full FEMA record for a structure that touches SLR inundation at the given scenario, including the building footprint geometry, the original FEMA attributes, and the `tract_geoid` column carried forward from Section 2.5. All metadata is preserved in every scenario table (not just 0ft), so each table is self-contained and usable without downstream joins — particularly important for collaborators working in ArcGIS who may load individual scenario layers independently.
 
@@ -831,7 +833,7 @@ The script uses aggressive parallel query settings, since it runs as a single in
 
 ### Performance
 
-The full 231-table run completes in approximately 20 minutes on TRIPPER3. Per-query runtimes scale with state size and SLR scenario:
+The full 253-table run completes in approximately 20 minutes on TRIPPER3. Per-query runtimes scale with state size and SLR scenario:
 
 -   Small states at low SLR (e.g., AL at 0ft, 204k structures): \~1 second
 -   Mid-sized states (e.g., GA, MS, OR): 1–3 seconds per scenario
@@ -851,10 +853,10 @@ This contrasts sharply with the tract intersection analysis in Section 2.4, wher
 Per-state, per-scenario flooded structures tables:
 
 -   Naming: `flooded_structures_FF_Xft` where FF = 2-digit state FIPS code, X = SLR level (0 to 10)
--   231 tables total (21 states × 11 scenarios)
+-   253 tables total (21 states × 11 scenarios)
 -   Columns: all original FEMA fields plus `tract_geoid` and `geom`
 -   Monotonic row counts: for any given state, the number of flooded structures increases with SLR level (e.g., AL: 4,602 at 0ft → 30,345 at 10ft; VA: 9,091 at 0ft → 218,405 at 10ft)
--   Total across all state × scenario combinations: **17,576,504 flooded structure rows** out of 155,111,055 structure × scenario combinations checked (11.33%)
+-   Total across all state × scenario combinations: `17,608,770`flooded structure rows out of `156,157,639` structure × scenario combinations checked (11.28%)
 
 ### Running
 
@@ -882,11 +884,11 @@ Rscript analyze_structure_slr_flooding_v2_1.R \
 
 ## 2.7 Export Flooded Structures as GeoPackage Files
 
-The script `export_flooded_structures_v2.R` reads each `flooded_structures_FF_Xft` table from megaSLR and writes it to a GeoPackage (.gpkg) file, producing one GPKG per state with all 11 SLR scenarios as separate layers within the file. The output is intended for delivery to downstream consumers — principally Nora Schwaller at UCSD, who uses the exports in ArcGIS for a zoning implications analysis.
+The script `export_flooded_structures_v2.R` reads each `flooded_structures_FF_Xft` table from megaSLR and writes it to a GeoPackage (.gpkg) file, producing one GPKG per state with all 11 SLR scenarios as separate layers within the file. The output is intended for delivery to downstream users who use the exports in ArcGIS for socioeconomic analyses.
 
 ### Output format and layer organization
 
-The export produces 21 GeoPackage files, one per coastal state, using the naming convention `flooded_structures_SS.gpkg` where SS is the two-letter state abbreviation. Each file contains 11 layers named `SLR_0ft` through `SLR_10ft`, corresponding to the 11 input tables for that state:
+The export produces 23 GeoPackage files, one per coastal/tidal state, using the naming convention `flooded_structures_SS.gpkg` where SS is the two-letter state abbreviation. Each file contains 11 layers named `SLR_0ft` through `SLR_10ft`, corresponding to the 11 input tables for that state:
 
 ```         
 flooded_structures_FL.gpkg
@@ -928,7 +930,7 @@ database:
   name: "megaSLR"
   host: "localhost"
 
-states: ["01","06","09","10","12","13","22","23","24","25","28","33","34","36","37","41","44","45","48","51","53"]
+states: ["01","06","09","10","11","12","13","22","23","24","25","28","33","34","36","37","41","42","44","45","48","51","53"]
 slr_scenarios: ["0ft","1ft","2ft","3ft","4ft","5ft","6ft","7ft","8ft","9ft","10ft"]
 
 paths:
@@ -936,7 +938,7 @@ paths:
   structures_export_dir: "~/claude_projects/slr_analysis/exports/flooded_structures_gpkg"
 ```
 
-The `paths.structures_export_dir` key specifies the output directory for the GPKG files. If omitted, the script defaults to `~/claude_projects/slr_analysis/exports/gpkg`. A parallel A parallel `paths.tracts_export_dir` key is used by the tracts export script (Section 2.8).
+The `paths.structures_export_dir` key specifies the output directory for the GPKG files. If omitted, the script defaults to `~/claude_projects/slr_analysis/exports/gpkg`. A parallel `paths.tracts_export_dir` key is used by the tracts export script (Section 2.8).
 
 ### Running
 
@@ -950,13 +952,13 @@ Rscript export_flooded_structures_v2.R \
 
 ### Prerequisites
 
--   **Flooded structures tables** `flooded_structures_FF_Xft` for all 21 states × 11 scenarios (231 tables, Section 2.6).
+-   **Flooded structures tables** `flooded_structures_FF_Xft` for all 23 states × 11 scenarios (253 tables, Section 2.6).
 -   **Output directory** specified by `paths.structures_export_dir`, or the hard-coded default. The script creates the directory if it does not exist.
 -   R packages: `sf`, `DBI`, `RPostgres`, `yaml`, `glue`.
 
 ### Outputs
 
--   21 GeoPackage files named `flooded_structures_SS.gpkg`
+-   23 GeoPackage files named `flooded_structures_SS.gpkg`, where SS = 1 of 23 state abbreviations
 -   11 layers per file, named `SLR_0ft` through `SLR_10ft`
 -   Each layer contains the full FEMA record plus `tract_geoid` and `geom`
 -   Files are written to `paths.structures_export_dir` (default: `~/claude_projects/slr_analysis/exports/gpkg`)
@@ -977,7 +979,7 @@ The script `export_flooded_tracts_v1.R` reads each `tract_{scenario}_intersectio
 
 ### Output format and layer organization
 
-The export produces 21 GeoPackage files, one per coastal state, using the naming convention `flooded_tracts_SS.gpkg` where SS is the two-letter state abbreviation. Each file contains 11 layers named `SLR_0ft` through `SLR_10ft`, with each layer containing only the tracts for that state at that SLR scenario:
+The export produces 21 GeoPackage files, one per coastal/tidal state, using the naming convention `flooded_tracts_SS.gpkg` where SS is the two-letter state abbreviation. Each file contains 11 layers named `SLR_0ft` through `SLR_10ft`, with each layer containing only the tracts for that state at that SLR scenario:
 
 ```         
 flooded_tracts_FL.gpkg
@@ -992,7 +994,7 @@ Each row contains `geoid`, `namelsad`, `statefp`, `tract_area_ha`, `slr_area_ha`
 
 ### Organizational consistency with structures exports
 
-The tract intersection tables in megaSLR are organized by SLR scenario (11 tables, each covering all 21 states), while the flooded structures tables are organized by state × scenario (231 tables). To avoid this asymmetry propagating into the exported data — which would force users to learn two different organizational conventions — the tract export script filters each scenario table by `statefp` at export time and writes the results into per-state GPKGs. This means both datasets follow the same convention: pull one state's GPKG, find all 11 SLR scenarios as layers inside it.
+The tract intersection tables in megaSLR are organized by SLR scenario (11 tables, each covering all 23 states), while the flooded structures tables are organized by state × scenario (253 tables). To avoid this asymmetry propagating into the exported data — which would force users to learn two different organizational conventions — the tract export script filters each scenario table by `statefp` at export time and writes the results into per-state GPKGs. This means both datasets follow the same convention: pull one state's GPKG, find all 11 SLR scenarios as layers inside it.
 
 ### Method
 
@@ -1053,10 +1055,10 @@ Rscript export_flooded_tracts_v1.R \
 
 ### Outputs
 
--   21 GeoPackage files named `flooded_tracts_SS.gpkg`
+-   23 GeoPackage files named `flooded_tracts_SS.gpkg`, where SS = 1 of 23 state abbreviations
 -   11 layers per file, named `SLR_0ft` through `SLR_10ft`
 -   Each layer contains `geoid`, `namelsad`, `statefp`, `tract_area_ha`, `slr_area_ha`, and `geom`
--   Total size: 8.1 MB across all 21 files
+-   Total size: 8.4 MB across all 23 files
 -   Total export time: \~14 seconds
 
 ### Logging and notifications
@@ -1068,3 +1070,19 @@ Rscript export_flooded_tracts_v1.R \
 
 -   `export_flooded_tracts_v1.R` — main export script (YAML-driven, logging, ntfy notifications)
 -   `tracts_analysis_config_v2.yaml` — shared configuration file (also used by tract intersection analysis)
+
+## 2.9 Summary Statistics
+
+| Statistic                             |       Value |
+|---------------------------------------|------------:|
+| Census tracts in `census_tracts_2025` |      53,154 |
+| `usa_structures_FF` tables            |          23 |
+| Total structures loaded from .gdb     |  77,965,151 |
+| Total structures after filter         |  14,196,149 |
+| `slr_Xft_FF` subdivided tables        |         253 |
+| `flooded_structures_FF_Xft` tables    |         253 |
+| Total flooded structure rows          |  17,608,770 |
+| Total structure×scenario combinations | 156,157,639 |
+| Overall flood rate                    |      11.28% |
+| Flooded structures GPKGs              |    23 files |
+| Flooded tracts GPKGs                  |    23 files |
