@@ -507,7 +507,7 @@ DE FL GA LA NC TX VA
 
 The `ST_Union` computation is the primary bottleneck in wave 2, particularly for tracts with dense SLR polygon coverage (e.g., Florida Keys, Louisiana coast).
 
-Pennsylvania (FIPS 42) and Washington DC (FIPS 11) were somhow "forgotten" in the original analysis, and were added after the original 21-state pipeline was complete.
+Pennsylvania (FIPS 42) and Washington DC (FIPS 11) were somhow "forgotten" in the original analysis, and were added after the original 23-state pipeline was complete.
 
 #### Louisiana: bespoke per-tract multi-pass processing
 
@@ -723,7 +723,7 @@ Overwrite behavior is controlled entirely by YAML flags — no interactive promp
 ### Running
 
 ``` bash
-# Main load — all 21 states (CT will produce 0 structures)
+# Main load — all 23 states (CT will produce 0 structures)
 screen -S structures
 cd ~/claude_projects/slr_analysis/structures/code/01_prepare
 Rscript load_structures_to_db_v2.R \
@@ -844,8 +844,8 @@ This contrasts sharply with the tract intersection analysis in Section 2.4, wher
 
 ### Prerequisites
 
--   **Pre-filtered structure tables** `usa_structures_FF` for all 21 states (Section 2.5).
--   **Subdivided SLR tables** `slr_{Xft}_{FF}` for all 21 states × 11 scenarios (231 tables, Section 2.3).
+-   **Pre-filtered structure tables** `usa_structures_FF` for all 23 states (Section 2.5).
+-   **Subdivided SLR tables** `slr_{Xft}_{FF}` for all 23 states × 11 scenarios (231 tables, Section 2.3).
 -   Both table sets must have GIST spatial indexes on their `geom` columns.
 
 ### Outputs
@@ -853,7 +853,7 @@ This contrasts sharply with the tract intersection analysis in Section 2.4, wher
 Per-state, per-scenario flooded structures tables:
 
 -   Naming: `flooded_structures_FF_Xft` where FF = 2-digit state FIPS code, X = SLR level (0 to 10)
--   253 tables total (21 states × 11 scenarios)
+-   253 tables total (23 states × 11 scenarios)
 -   Columns: all original FEMA fields plus `tract_geoid` and `geom`
 -   Monotonic row counts: for any given state, the number of flooded structures increases with SLR level (e.g., AL: 4,602 at 0ft → 30,345 at 10ft; VA: 9,091 at 0ft → 218,405 at 10ft)
 -   Total across all state × scenario combinations: `17,608,770`flooded structure rows out of `156,157,639` structure × scenario combinations checked (11.28%)
@@ -901,7 +901,7 @@ flooded_structures_FL.gpkg
 
 GeoPackage was chosen as the export format for several reasons:
 
--   **Broad compatibility:** GeoPackage is an Open Geospatial Consortium standard that works natively in ArcGIS, QGIS, and R's `sf` package without format conversion.
+-   **Broad compatibility:** GeoPackage is an Open Geospatial Consortium standard that works natively in ArcGIS, QGIS, and R's `sf` package, and Python's `geopandas` library without format conversion.
 -   **Multi-layer support:** Unlike shapefiles, a single GPKG file can hold multiple layers, allowing all 11 SLR scenarios for a state to live in one portable file.
 -   **No file size limits:** Shapefiles are capped at 2 GB per file, which would be restrictive for large states like Florida with \~4 million flooded structures at 10ft. GeoPackage has no such limit.
 -   **Attribute preservation:** All original FEMA fields are preserved alongside the geometry, unlike shapefiles' 10-character column name limit.
@@ -962,6 +962,7 @@ Rscript export_flooded_structures_v2.R \
 -   11 layers per file, named `SLR_0ft` through `SLR_10ft`
 -   Each layer contains the full FEMA record plus `tract_geoid` and `geom`
 -   Files are written to `paths.structures_export_dir` (default: `~/claude_projects/slr_analysis/exports/gpkg`)
+-   Total size: 11 GB across all 23 files
 
 ### Logging and notifications
 
@@ -979,7 +980,7 @@ The script `export_flooded_tracts_v1.R` reads each `tract_{scenario}_intersectio
 
 ### Output format and layer organization
 
-The export produces 21 GeoPackage files, one per coastal/tidal state, using the naming convention `flooded_tracts_SS.gpkg` where SS is the two-letter state abbreviation. Each file contains 11 layers named `SLR_0ft` through `SLR_10ft`, with each layer containing only the tracts for that state at that SLR scenario:
+The export produces 23 GeoPackage files, one per coastal/tidal state, using the naming convention `flooded_tracts_SS.gpkg` where SS is the two-letter state abbreviation. Each file contains 11 layers named `SLR_0ft` through `SLR_10ft`, with each layer containing only the tracts for that state at that SLR scenario:
 
 ```         
 flooded_tracts_FL.gpkg
@@ -1009,7 +1010,7 @@ The `statefp` filter is efficient — it's an indexed column on the tract inters
 
 ### Population data
 
-The exported tract tables do not include population fields. Census population data is well-documented, widely available, and straightforward to join by `geoid` using tools such as `tidycensus` (R), ArcGIS Living Atlas, or direct downloads from data.census.gov. Embedding a specific ACS vintage in the export would create a staleness risk: the ACS 5-year estimates are updated annually each December, and a frozen population column would become outdated relative to the latest available data. Keeping the tract exports focused on the SLR intersection geometry — the novel contribution of this dataset — allows downstream users to join whichever population vintage is most appropriate for their analysis.
+The exported tract tables do not include population fields. Census population data is well-documented, widely available, and straightforward to join by `geoid` using tools such as `tidycensus` (R), `pygris` or `cenpy` (Python), ArcGIS Living Atlas, or direct downloads from data.census.gov. Embedding a specific American Community Survey (ACS) vintage in the export would create a staleness risk: the ACS 5-year estimates are updated annually each December, and a frozen population column would become outdated relative to the latest available data. Keeping the tract exports focused on the SLR intersection geometry — the novel contribution of this dataset — allows downstream users to join whichever population vintage is most appropriate for their analysis.
 
 ### Configuration
 
@@ -1023,7 +1024,7 @@ database:
 states:
  - "01"   # AL
  - "06"   # CA
- # ... all 21 coastal states
+ # ... all 23 coastal states
 
 slr_scenarios:
  - "0ft"
@@ -1073,16 +1074,34 @@ Rscript export_flooded_tracts_v1.R \
 
 ## 2.9 Summary Statistics
 
-| Statistic                             |       Value |
-|---------------------------------------|------------:|
-| Census tracts in `census_tracts_2025` |      53,154 |
-| `usa_structures_FF` tables            |          23 |
-| Total structures loaded from .gdb     |  77,965,151 |
-| Total structures after filter         |  14,196,149 |
-| `slr_Xft_FF` subdivided tables        |         253 |
-| `flooded_structures_FF_Xft` tables    |         253 |
-| Total flooded structure rows          |  17,608,770 |
-| Total structure×scenario combinations | 156,157,639 |
-| Overall flood rate                    |      11.28% |
-| Flooded structures GPKGs              |    23 files |
-| Flooded tracts GPKGs                  |    23 files |
++-----------------------------------------+-----------------------------+
+| Statistic                               | Value                       |
++=========================================+============================:+
+| Census tracts in `census_tracts_2025`   | 53,154                      |
++-----------------------------------------+-----------------------------+
+| `usa_structures_FF` tables              | 23                          |
++-----------------------------------------+-----------------------------+
+| Total structures loaded from .gdb       | 77,965,151                  |
++-----------------------------------------+-----------------------------+
+| Total structures after filter           | 14,196,149                  |
++-----------------------------------------+-----------------------------+
+| `slr_Xft_FF` subdivided tables          | 253                         |
++-----------------------------------------+-----------------------------+
+| `tract_Xft_intersections` tables        | 11                          |
++-----------------------------------------+-----------------------------+
+| Flooded tracts range                    | 6,859 (0ft) → 10,426 (10ft) |
++-----------------------------------------+-----------------------------+
+| Total tract×scenario rows               | 93,525                      |
++-----------------------------------------+-----------------------------+
+| `flooded_structures_FF_Xft` tables      | 253                         |
++-----------------------------------------+-----------------------------+
+| Total flooded structure rows            | 17,608,770                  |
++-----------------------------------------+-----------------------------+
+| Total structure×scenario combinations   | 156,157,639                 |
++-----------------------------------------+-----------------------------+
+| Overall flood rate                      | 11.28%                      |
++-----------------------------------------+-----------------------------+
+| Flooded structures GPKGs                | 23 files, 11 GB             |
++-----------------------------------------+-----------------------------+
+| Flooded tracts GPKGs                    | 23 files, 8.4 MB            |
++-----------------------------------------+-----------------------------+
