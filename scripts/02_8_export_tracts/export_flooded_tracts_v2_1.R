@@ -17,7 +17,7 @@
 #   Layers: SLR_0ft, SLR_1ft, ..., SLR_10ft
 #
 # Each row contains:
-#   geoid, namelsad, statefp, countyfp, aland, awater, tract_area_ha, slr_area_ha, geom
+#   geoid, namelsad, statefp, tract_area_ha, slr_area_ha, geom
 #
 # Usage:
 #   Rscript export_flooded_tracts_v2.R <config_file.yaml>
@@ -225,7 +225,7 @@ main <- function() {
       tryCatch({
         query <- glue(
           "SELECT t.geoid, t.namelsad, t.statefp, c.countyfp, c.aland, c.awater, ",
-          "t.tract_area_ha, t.slr_area_ha, t.geom ",
+          "t.tract_area_ha, t.slr_area_ha, c.geom ",
           "FROM {table_name} t ",
           "JOIN census_tracts_2025 c ON t.geoid = c.geoid ",
           "WHERE t.statefp = '{fips}'"
