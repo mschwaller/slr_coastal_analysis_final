@@ -8,7 +8,7 @@ Sea level rise (SLR) appears to be an inevitable consequence of atmospheric carb
 
 This document describes the source data and the data processing pipeline used to create the CYOD dataset.
 
-**Scale:** 23 coastal states · 11 SLR scenarios (0ft–10ft) · \~53,150 Census tracts · \~101K–3.8M flooded structures (varying by SLR level)\
+**Scale:** 23 coastal states · 11 SLR scenarios (0ft–10ft) · \~53,150 Census tracts · \~101K–3.9M flooded structures (varying by SLR level)\
 **Infrastructure:** PostgreSQL/PostGIS on an Ubuntu 32-core, 128 GB RAM AMD Threadripper workstation\
 **Primary language:** R (with PostGIS for spatial computation)
 
@@ -431,7 +431,7 @@ Per-state subdivided SLR tables named `slr_{scenario}_{state_fips}`:
 ### Logging and notifications
 
 -   Log files are written to `paths.log_dir` with timestamps and batch labels in the filename.
--   ntfy.sh push notifications are sent at state start/finish and at overall completion to the `matt-tripper3-jobs` topic.
+-   ntfy.sh push notifications (<https://ntfy.sh>) are sent at state start/finish and at overall completion to the `matt-tripper3-jobs` topic.
 
 ### Single-state command-line override
 
@@ -1074,34 +1074,25 @@ Rscript export_flooded_tracts_v1.R \
 
 ## 2.9 Summary Statistics
 
-+-----------------------------------------+-----------------------------+
-| Statistic                               | Value                       |
-+=========================================+============================:+
-| Census tracts in `census_tracts_2025`   | 53,154                      |
-+-----------------------------------------+-----------------------------+
-| `usa_structures_FF` tables              | 23                          |
-+-----------------------------------------+-----------------------------+
-| Total structures loaded from .gdb       | 77,965,151                  |
-+-----------------------------------------+-----------------------------+
-| Total structures after filter           | 14,196,149                  |
-+-----------------------------------------+-----------------------------+
-| `slr_Xft_FF` subdivided tables          | 253                         |
-+-----------------------------------------+-----------------------------+
-| `tract_Xft_intersections` tables        | 11                          |
-+-----------------------------------------+-----------------------------+
-| Flooded tracts range                    | 6,859 (0ft) → 10,426 (10ft) |
-+-----------------------------------------+-----------------------------+
-| Total tract×scenario rows               | 93,525                      |
-+-----------------------------------------+-----------------------------+
-| `flooded_structures_FF_Xft` tables      | 253                         |
-+-----------------------------------------+-----------------------------+
-| Total flooded structure rows            | 17,608,770                  |
-+-----------------------------------------+-----------------------------+
-| Total structure×scenario combinations   | 156,157,639                 |
-+-----------------------------------------+-----------------------------+
-| Overall flood rate                      | 11.28%                      |
-+-----------------------------------------+-----------------------------+
-| Flooded structures GPKGs                | 23 files, 11 GB             |
-+-----------------------------------------+-----------------------------+
-| Flooded tracts GPKGs                    | 23 files, 8.4 MB            |
-+-----------------------------------------+-----------------------------+
+**General statistics**
+
+| Statistic                             |                       Value |
+|---------------------------------------|----------------------------:|
+| Census tracts in `census_tracts_2025` |                      53,154 |
+| `usa_structures_FF` tables            |                          23 |
+| Total structures loaded from .gdb     |                  77,965,151 |
+| Total structures after filter         |                  14,196,149 |
+| `slr_Xft_FF` subdivided tables        |                         253 |
+| `tract_Xft_intersections` tables      |                          11 |
+| Flooded tracts range                  | 6,859 (0ft) → 10,426 (10ft) |
+| Total tract×scenario rows             |                      93,525 |
+| `flooded_structures_FF_Xft` tables    |                         253 |
+| Total flooded structure rows          |                  17,608,770 |
+| Total structure×scenario combinations |                 156,157,639 |
+| Overall flood rate                    |                      11.28% |
+| Flooded structures GPKGs              |             23 files, 11 GB |
+| Flooded tracts GPKGs                  |            23 files, 8.4 MB |
+
+**Flooded Structures**
+
+\| **SLR Scenario** \| **Flooded Structures** \| \|-------------\|-----------------\| \| 0ft \| 100,912 \| \| 1ft \| 139,868 \| \| 2ft \| 253,356 \| \| 3ft \| 498,628 \| \| 4ft \| 845,181 \| \| 5ft \| 1,277,606 \| \| 6ft \| 1,820,450 \| \| 7ft \| 2,442,812 \| \| 8ft \| 2,966,822 \| \| 9ft \| 3,408,049 \| \| 10ft \| 3,855,086 \|

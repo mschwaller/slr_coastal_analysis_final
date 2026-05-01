@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # ==============================================================================
-# Export tract_{scenario}_intersections Tables to GeoPackage Files (v1)
+# Export tract_{scenario}_intersections Tables to GeoPackage Files (v2)
 # ==============================================================================
 #
 # Purpose: Exports per-state, per-scenario tract × SLR intersection data from
@@ -17,16 +17,16 @@
 #   Layers: SLR_0ft, SLR_1ft, ..., SLR_10ft
 #
 # Each row contains:
-#   geoid, namelsad, statefp, tract_area_ha, slr_area_ha, geom
+#   geoid, namelsad, statefp, countyfp, aland, awater, tract_area_ha, slr_area_ha, geom
 #
 # Usage:
-#   Rscript export_flooded_tracts_v1.R <config_file.yaml>
+#   Rscript export_flooded_tracts_v2.R <config_file.yaml>
 #
 # Example:
-#   Rscript export_flooded_tracts_v1.R YAML_config_files/tracts_analysis_config_v2.yaml
+#   Rscript export_flooded_tracts_v2.R YAML_config_files/tracts_analysis_config_v2.yaml
 #
 # Author: Matt Schwaller
-# Date: 2026-04-15
+# Date: 2026-04-30
 # ==============================================================================
 
 library(sf)
@@ -59,7 +59,7 @@ init_log <- function(log_dir) {
   log_con <- file(log_file, open = "wt")
   writeLines(c(
     strrep("=", 78),
-    "Flooded Tracts GeoPackage Export Log (v1)",
+    "Flooded Tracts GeoPackage Export Log (v2)",
     glue("Started: {Sys.time()}"),
     strrep("=", 78)
   ), log_con)
@@ -114,7 +114,7 @@ main <- function() {
   # --- Parse command line arguments ---
   args <- commandArgs(trailingOnly = TRUE)
   if (length(args) == 0) {
-    stop("Usage: Rscript export_flooded_tracts_v1.R <config_file.yaml>")
+    stop("Usage: Rscript export_flooded_tracts_v2.R <config_file.yaml>")
   }
 
   config_file <- args[1]
@@ -223,7 +223,13 @@ main <- function() {
 
       # Read from PostGIS, filtering to this state
       tryCatch({
-        query <- glue("SELECT * FROM {table_name} WHERE statefp = '{fips}'")
+        query <- glue(
+          "SELECT t.geoid, t.namelsad, t.statefp, c.countyfp, c.aland, c.awater, ",
+          "t.tract_area_ha, t.slr_area_ha, t.geom ",
+          "FROM {table_name} t ",
+          "JOIN census_tracts_2025 c ON t.geoid = c.geoid ",
+          "WHERE t.statefp = '{fips}'"
+        )
         layer_data <- st_read(con, query = query, quiet = TRUE)
 
         n_tracts <- nrow(layer_data)
