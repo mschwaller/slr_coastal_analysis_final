@@ -21,7 +21,7 @@ mode:
 # Geographic Scope — 21 coastal states (FIPS codes)
 # ------------------------------------------------------------------------------
 # These must match the subdivided SLR table suffixes: slr_{scenario}_{fips}
-# states:
+states:
  - "01"   # AL
  - "06"   # CA
  - "09"   # CT

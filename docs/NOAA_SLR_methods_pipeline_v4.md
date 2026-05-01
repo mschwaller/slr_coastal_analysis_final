@@ -81,7 +81,7 @@ This is a brief description of the database and scripts used to generate the CYO
 ### Data Export
 
 -   **Export of flooded structures** is performed using the script `export_flooded_structures_v2.R`. This script saves flooded_structures tables from megaSLR to disk as Open Geospatial Consortium formatted GeoPackage files with one GPKG per state, and with SLR_0ft to SLR_10ft as separate layers in each GPKG. The file naming convention for the exported files is flooded_structures_SS.gpkg where SS = one of AL, CA, CT, DC, DE, FL, GA, LA, MA, MD, ME, MS, NC, NH, NJ, NY, OR, PA, RI, SC, TX, VA, WA.
--   **Export of flooded tracts** is performed using the script `export_flooded_tracts_v1.R` and the config file `tracts_analysis_config_v2_1.yaml`. This script reads tract intersection tables from megaSLR, filters by state, and exports to GeoPackage files with one GPKG per state and SLR_0ft to SLR_10ft as separate layers. The file naming convention is `flooded_tracts_SS.gpkg` where SS = state abbreviation.
+-   **Export of flooded tracts** is performed using the script `export_flooded_tracts_v2.R` and the config file `tracts_analysis_config_v2_1.yaml`. This script reads tract intersection tables from megaSLR, filters by state, and exports to GeoPackage files with one GPKG per state and SLR_0ft to SLR_10ft as separate layers. The file naming convention is `flooded_tracts_SS.gpkg` where SS = state abbreviation.
 
 The CYOD processing pipeline is summarized below as an illustration with color representations as follows: coral for external data sources, teal for all database tables, purple for exported files
 
@@ -120,7 +120,7 @@ The table below is roadmap for the processing pipeline indicating the source fil
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.7** Export Flooded Structures)             |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
-| `tract_Xft_intersections`\                      | `export_flooded_tracts_v1.R` + `tracts_analysis_config_v2.yaml` \`            | `flooded_tracts_SS.gpkg`     | SS = state abbreviation                                   | 23 files          |
+| `tract_Xft_intersections`\                      | `export_flooded_tracts_v2.R` + `tracts_analysis_config_v2.yaml` \`            | `flooded_tracts_SS.gpkg`     | SS = state abbreviation                                   | 23 files          |
 | \                                               |                                                                               |                              |                                                           |                   |
 | (**2.8** Export Flooded Tracts)                 |                                                                               |                              |                                                           |                   |
 +-------------------------------------------------+-------------------------------------------------------------------------------+------------------------------+-----------------------------------------------------------+-------------------+
@@ -976,7 +976,7 @@ Rscript export_flooded_structures_v2.R \
 
 ## 2.8 Export Flooded Tracts as GeoPackage Files
 
-The script `export_flooded_tracts_v1.R` reads each `tract_{scenario}_intersections` table from megaSLR, filters by state, and writes the results to GeoPackage (.gpkg) files organized per state. This mirrors the per-state organization used for flooded structures exports in Section 2.7, so that downstream users encounter a consistent pattern across both datasets: one GPKG per state, with SLR scenarios as layers.
+The script `export_flooded_tracts_v2.R` reads each `tract_{scenario}_intersections` table from megaSLR, filters by state, and writes the results to GeoPackage (.gpkg) files organized per state. This mirrors the per-state organization used for flooded structures exports in Section 2.7, so that downstream users encounter a consistent pattern across both datasets: one GPKG per state, with SLR scenarios as layers.
 
 ### Output format and layer organization
 
@@ -991,7 +991,7 @@ flooded_tracts_FL.gpkg
  └── SLR_10ft   (2,935 tracts)
 ```
 
-Each row contains `geoid`, `namelsad`, `statefp`, `tract_area_ha`, `slr_area_ha`, and `geom`. Users who need a derived field such as percent flooded can compute it as `slr_area_ha / tract_area_ha`.
+Each row contains `geoid`, `namelsad`, `statefp`, `countyfp`, `aland`, `awater`, `tract_area_ha`, `slr_area_ha`, and `geom`. Users who need a derived field such as percent flooded can compute it as `slr_area_ha / tract_area_ha`.
 
 ### Organizational consistency with structures exports
 
@@ -1002,7 +1002,7 @@ The tract intersection tables in megaSLR are organized by SLR scenario (11 table
 For each state in the YAML `states` list, the script:
 
 1.  Removes any pre-existing GPKG file for the state (to start fresh)
-2.  Loops over the 11 SLR scenarios, reading from each `tract_{scenario}_intersections` table with a `WHERE statefp = '{fips}'` filter, and writing the result as a new layer in the GPKG via `sf::st_write`
+2.  Loops over the 11 SLR scenarios, reading from each `tract_{scenario}_intersections` table with a `WHERE statefp = '{fips}'` filter, and a JOIN to `census_tracts_2025` to retrieve `countyfp`, `aland`, and `awater`, then writing the result as a new layer in the GPKG via `sf::st_write`
 3.  Uses `append = TRUE` on all writes after the first to add layers to the same file
 4.  Logs per-layer tract counts and final file size
 
@@ -1043,7 +1043,7 @@ The `paths.tracts_export_dir` key specifies the output directory. If omitted, th
 ``` bash
 screen -S tract_export
 cd ~/claude_projects/slr_analysis/tracts/code/04_export
-Rscript export_flooded_tracts_v1.R \
+Rscript export_flooded_tracts_v2.R \
   ~/claude_projects/slr_analysis/tracts/YAML_config_files/tracts_analysis_config_v2.yaml \
   2>&1 | tee ~/Science/Nora_SLR/SLR_log_files/tracts_export_console.log
 ```
@@ -1058,7 +1058,7 @@ Rscript export_flooded_tracts_v1.R \
 
 -   23 GeoPackage files named `flooded_tracts_SS.gpkg`, where SS = 1 of 23 state abbreviations
 -   11 layers per file, named `SLR_0ft` through `SLR_10ft`
--   Each layer contains `geoid`, `namelsad`, `statefp`, `tract_area_ha`, `slr_area_ha`, and `geom`
+-   Each layer contains `geoid`, `namelsad`, `statefp`, `countyfp`, `aland`, `awater`, `tract_area_ha`, `slr_area_ha`, and `geom`
 -   Total size: 8.4 MB across all 23 files
 -   Total export time: \~14 seconds
 
@@ -1069,7 +1069,7 @@ Rscript export_flooded_tracts_v1.R \
 
 ### Scripts
 
--   `export_flooded_tracts_v1.R` — main export script (YAML-driven, logging, ntfy notifications)
+-   `export_flooded_tracts_v2.R` — main export script (YAML-driven, logging, ntfy notifications)
 -   `tracts_analysis_config_v2.yaml` — shared configuration file (also used by tract intersection analysis)
 
 ## 2.9 Summary Statistics
