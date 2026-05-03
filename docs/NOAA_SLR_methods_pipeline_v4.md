@@ -8,7 +8,7 @@ Sea level rise (SLR) appears to be an inevitable consequence of atmospheric carb
 
 This document describes the source data and the data processing pipeline used to create the CYOD dataset.
 
-**Scale:** 23 coastal states · 11 SLR scenarios (0ft–10ft) · \~53,150 Census tracts · \~101K–3.9M flooded structures (varying by SLR level)\
+**Scale:** 23 coastal states, 11 SLR scenarios (0ft–10ft), \~53,150 Census tracts, \~101K–3.9M flooded structures (varying by SLR level)\
 **Infrastructure:** PostgreSQL/PostGIS on an Ubuntu 32-core, 128 GB RAM AMD Threadripper workstation\
 **Primary language:** R (with PostGIS for spatial computation)
 
