@@ -14,17 +14,26 @@
 #   - Timestamped log file in paths.log_dir with flush per write
 #   - ntfy.sh push notifications per state and at overall completion
 #
+# v2_2 changes (vs v2_1):
+#   - Export query uses an explicit column whitelist instead of SELECT *,
+#     restricting output to fields with documented provenance. Eight source
+#     columns are dropped (35 -> 27 attribute fields, plus geometry):
+#       * Unpopulated per Yang et al. 2024 (USA Structures), Table 2:
+#           sec_occ, outbldg, h_adj_elev, l_adj_elev
+#       * Absent from the published schema, no published methodology:
+#           b_code, pop_median, pop_ci95_lower, pop_ci95_upper
+#
 # Output naming: flooded_structures_SS.gpkg (SS = state abbreviation)
 # Layer naming:  SLR_Xft (X = 0 through 10)
 #
 # Usage:
-#   Rscript export_flooded_structures_v2.R <config_file.yaml>
+#   Rscript export_flooded_structures_v2_2.R <config_file.yaml>
 #
 # Example:
-#   Rscript export_flooded_structures_v2.R YAML_config_files/structure_analysis_config_v3.yaml
+#   Rscript export_flooded_structures_v2_2.R YAML_config_files/structure_analysis_config_v3.yaml
 #
 # Author: Matt Schwaller
-# Date: 2026-04-15
+# Date: 2026-04-15 (v2_2: 2026-07-03)
 # ==============================================================================
 
 library(sf)
@@ -202,8 +211,39 @@ main <- function() {
       }
 
       # Read from PostGIS and write to GPKG
+      #
+      # Explicit column whitelist (not SELECT *) to restrict the export to
+      # fields with documented provenance. Eight source columns are omitted:
+      #   - Unpopulated per Yang et al. 2024 (USA Structures), Table 2:
+      #       sec_occ, outbldg, h_adj_elev, l_adj_elev
+      #   - Absent from the published USA Structures schema and lacking any
+      #     published derivation methodology:
+      #       b_code, pop_median, pop_ci95_lower, pop_ci95_upper
+      # Retained: 27 documented attribute fields + tract_geoid + geometry.
+      # Using an explicit list also prevents any future undocumented source
+      # columns from silently reappearing in the export.
       tryCatch({
-        query <- glue("SELECT * FROM {table_name}")
+        query <- glue(
+          "SELECT ",
+          # --- Esri / geodatabase defaults ---
+          "objectid, shape_area, shape_length, ",
+          # --- Building identity & occupancy ---
+          "build_id, occ_cls, prim_occ, ",
+          # --- Address ---
+          "prop_addr, prop_city, prop_st, prop_zip, prop_cnty, ",
+          # --- Structure measurements ---
+          "height, sqmeters, sqfeet, ",
+          # --- Location / census codes ---
+          "fips, censuscode, ",
+          # --- Provenance / imagery ---
+          "prod_date, source, usng, longitude, latitude, ",
+          "image_name, image_date, val_method, remarks, uuid, ",
+          # --- Pipeline-added ---
+          "tract_geoid, ",
+          # --- Geometry (must be last) ---
+          "geom ",
+          "FROM {table_name}"
+        )
         layer_data <- st_read(con, query = query, quiet = TRUE)
 
         n_structures <- nrow(layer_data)
