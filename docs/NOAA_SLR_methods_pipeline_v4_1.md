@@ -801,7 +801,7 @@ MS     1,736,779      167,798    9.7%
 
 The script `analyze_structure_slr_flooding_v2_1.R` and its companion config file `structure_analysis_config_v3.yaml` determine which pre-filtered structures (from Section 2.5) intersect SLR inundation polygons (from Section 2.3) at each of the 11 SLR scenarios. The script generates 253 output tables with the naming convention `flooded_structures_FF_Xft`, where FF = 2-digit state FIPS code and X = SLR level (0 to 10, in feet).
 
-Each output row contains the full FEMA record for a structure that touches SLR inundation at the given scenario, including the building footprint geometry, the original FEMA attributes, and the `tract_geoid` column carried forward from Section 2.5. All metadata is preserved in every scenario table (not just 0ft), so each table is self-contained and usable without downstream joins — particularly important for collaborators working in ArcGIS who may load individual scenario layers independently.
+Each output row contains the full FEMA record for a structure that touches SLR inundation at the given scenario, including the building footprint geometry, the original FEMA attributes, and the `tract_geoid` column carried forward from Section 2.5. All metadata is preserved in every scenario table (not just 0ft), so each table is self-contained and usable without downstream joins — particularly important for collaborators working in ArcGIS who may load individual scenario layers independently. (The database tables retain the complete FEMA record; the GeoPackage export in Section 2.7 restricts output to the 27 documented-provenance fields.)
 
 ### Method
 
@@ -904,7 +904,7 @@ GeoPackage was chosen as the export format for several reasons:
 -   **Broad compatibility:** GeoPackage is an Open Geospatial Consortium standard that works natively in ArcGIS, QGIS, and R's `sf` package, and Python's `geopandas` library without format conversion.
 -   **Multi-layer support:** Unlike shapefiles, a single GPKG file can hold multiple layers, allowing all 11 SLR scenarios for a state to live in one portable file.
 -   **No file size limits:** Shapefiles are capped at 2 GB per file, which would be restrictive for large states like Florida with \~4 million flooded structures at 10ft. GeoPackage has no such limit.
--   **Attribute preservation:** All original FEMA fields are preserved alongside the geometry, unlike shapefiles' 10-character column name limit.
+-   **Attribute preservation:** GeoPackage imposes no 10-character column-name limit (a shapefile constraint), so full-length field names are preserved alongside the geometry. The export retains the documented USA Structures attribution schema (see "Exported fields" below); eight source columns without documented provenance are omitted.
 
 ### Method
 
@@ -920,6 +920,17 @@ Tables that do not exist or are empty are skipped with a warning; this does not 
 ### Connecticut note
 
 Connecticut's `tract_geoid` column in `flooded_structures_09_Xft` uses the new planning region GEOIDs (09110, 09120, ...) from `tract_10ft_intersections`, not the old county-based GEOIDs (09001, 09003, ...) that appear in the FEMA `CENSUSCODE` field. This is the correct behavior for downstream joins against the Census tract intersection tables (Section 2.4), but ArcGIS users should be aware that joining to FEMA-native county-based identifiers would require the relaxed state-prefix-plus-tract-suffix match described in Section 2.5.
+
+### Exported fields
+
+The export uses an explicit column whitelist rather than `SELECT *`, restricting the output to fields with documented provenance. Each exported layer contains **27 attribute fields plus geometry**: the documented USA Structures attribution schema (Yang et al. 2024), two documented additions (`prop_cnty`, a FEMA distribution addition; and `tract_geoid`, added by this pipeline), and the `geom` geometry column.
+
+Eight columns present in the source FEMA distribution are omitted, in two categories:
+
+-   **Unpopulated per Yang et al. 2024, Table 2** (documented as containing no data): `sec_occ`, `outbldg`, `h_adj_elev`, `l_adj_elev`.
+-   **Absent from the published USA Structures schema and lacking any published derivation methodology:** `b_code`, `pop_median`, `pop_ci95_lower`, `pop_ci95_upper`.
+
+The `pop_*` fields are per-structure modeled population estimates (a median with a 95% confidence interval) that appear in the FEMA distribution but are not part of the peer-reviewed USA Structures schema and carry no published methodology; they are not Census counts. Restricting the export to documented-provenance fields keeps the published dataset interpretable and citable. Users requiring current population figures should join their own Census/ACS data to `tract_geoid` (see Section 2.8, "Population data"). A complete field-by-field definition is provided in the dataset `data_dictionary.md`.
 
 ### Configuration
 
@@ -960,7 +971,7 @@ Rscript export_flooded_structures_v2.R \
 
 -   23 GeoPackage files named `flooded_structures_SS.gpkg`, where SS = 1 of 23 state abbreviations
 -   11 layers per file, named `SLR_0ft` through `SLR_10ft`
--   Each layer contains the full FEMA record plus `tract_geoid` and `geom`
+-   Each layer contains 27 attribute fields plus `geom` (see "Exported fields" below)
 -   Files are written to `paths.structures_export_dir` (default: `~/claude_projects/slr_analysis/exports/gpkg`)
 -   Total size: 11 GB across all 23 files
 
@@ -1010,7 +1021,9 @@ The `statefp` filter is efficient — it's an indexed column on the tract inters
 
 ### Population data
 
-The exported tract tables do not include Census population fields. Census population data is well-documented, widely available, and straightforward to join by `geoid` using tools such as `tidycensus` (R), `pygris` or `cenpy` (Python), ArcGIS Living Atlas, or direct downloads from data.census.gov. Embedding a specific American Community Survey (ACS) vintage in the export would create a staleness risk: the ACS 5-year estimates are updated annually each December, and a frozen population column would become outdated relative to the latest available data. Keeping the tract exports focused on the SLR intersection geometry — the novel contribution of this dataset — allows downstream users to join whichever population vintage is most appropriate for their analysis. **Note** that the FEMA USA Structures database includes fields for `pop_median`, `pop_ci95_lower`, and `pop_ci95_upper`. These are per-structure population estimates modeled by Oak Ridge National Laboratory (via dasymetric disaggregation of Census/ACS population to individual building footprints), not direct Census counts. These fields are retained in the exported GeoPackage files because they are native FEMA source fields, and are therefore "frozen" values tied to the date when the tracts database was generated. Users wanting current population estimates should join their own Census data to `tract_geoid` using—as mentioned above—R, Python, or ArcGIS tools, or direct download from data.census.gov.
+Neither the exported tract tables nor the exported structure tables include Census population fields. Census population data is well-documented, widely available, and straightforward to join by `geoid` (tracts) or `tract_geoid` (structures) using tools such as `tidycensus` (R), `pygris` or `cenpy` (Python), ArcGIS Living Atlas, or direct downloads from data.census.gov. Embedding a specific American Community Survey (ACS) vintage in the export would create a staleness risk: the ACS 5-year estimates are updated annually each December, and a frozen population column would become outdated relative to the latest available data. Keeping the exports focused on the SLR intersection geometry — the novel contribution of this dataset — allows downstream users to join whichever population vintage is most appropriate for their analysis.
+
+The FEMA USA Structures source distribution includes three per-structure population fields — `pop_median`, `pop_ci95_lower`, and `pop_ci95_upper` — that are **not** carried into the exported GeoPackages (see Section 2.7, "Exported fields"). These are modeled per-structure estimates (a median with a 95% confidence interval), not direct Census counts; they are absent from the peer-reviewed USA Structures schema (Yang et al. 2024) and have no published derivation methodology, so they were excluded along with the schema's documented-unpopulated fields to keep the published dataset restricted to attributes with documented provenance. Users requiring per-structure or per-tract population should join their own Census/ACS data as described above.
 
 ### Configuration
 

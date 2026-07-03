@@ -9,7 +9,7 @@ editor_options:
 Geospatial pipeline for analyzing U.S. coastal structure and Census
 tract exposure to NOAA sea level rise (SLR) inundation scenarios. The
 pipeline intersects NOAA SLR inundation polygons with 2025 Census TIGER
-tract boundaries and FEMA building footprints across 21 coastal states
+tract boundaries and FEMA building footprints across 23 coastal states
 at 11 SLR scenarios (0–10 ft).
 
 ## Repository Structure
@@ -33,20 +33,20 @@ slr_coastal_analysis_final/
 ```
 
 Directory numbering parallels the section numbering in the pipeline
-documentation (`docs/NOAA_SLR_methods_pipeline_v3.md`).
+documentation (`docs/NOAA_SLR_methods_pipeline_v4.md`).
 
 ## Pipeline Summary
 
 | Section | Step | Script | Output |
-|-------------------|------------------|------------------|------------------|
+|----|----|----|----|
 | 2.1 | Download NOAA SLR shapefiles | `NOAA_SLR_downloader_v3.R` + `ogr2ogr` | 66 tables (`slr_Xft_region`) |
 | 2.2 | Ingest Census tracts | `wget` + `shp2pgsql` | 1 table (`census_tracts_2025`) |
-| 2.3 | Subdivide SLR polygons | `create_state_slr_subdivided_v5.R` | 231 tables (`slr_Xft_FF`) |
+| 2.3 | Subdivide SLR polygons | `create_state_slr_subdivided_v5.R` | 253 tables (`slr_Xft_FF`) |
 | 2.4 | Tract intersections | `analyze_tract_slr_intersections_v5_1.R` | 11 tables (`tract_Xft_intersections`) |
-| 2.5 | Load FEMA structures | `load_structures_to_db_v2.R` | 21 tables (`usa_structures_FF`) |
-| 2.6 | Structure flooding analysis | `analyze_structure_slr_flooding_v2_1.R` | 231 tables (`flooded_structures_FF_Xft`) |
-| 2.7 | Export flooded structures | `export_flooded_structures_v2_1.R` | 21 GeoPackage files |
-| 2.8 | Export flooded tracts | `export_flooded_tracts_v1.R` | 21 GeoPackage files |
+| 2.5 | Load FEMA structures | `load_structures_to_db_v2.R` | 23 tables (`usa_structures_FF`) |
+| 2.6 | Structure flooding analysis | `analyze_structure_slr_flooding_v2_1.R` | 253 tables (`flooded_structures_FF_Xft`) |
+| 2.7 | Export flooded structures | `export_flooded_structures_v2_2.R` | 23 GeoPackage files |
+| 2.8 | Export flooded tracts | `export_flooded_tracts_v2.R` | 23 GeoPackage files |
 
 Naming conventions: `FF` = 2-digit state FIPS code, `X` = SLR scenario
 (0–10 ft), `SS` = 2-letter state abbreviation, `region` = NOAA region
@@ -56,12 +56,13 @@ name.
 
 -   **NOAA SLR inundation polygons** — 6 NOAA regions, 11 scenarios
     (0–10 ft). Downloaded via `NOAA_SLR_downloader_v3.R`.
--   **2025 Census TIGER tract boundaries** — 49,502 tracts across 21
+-   **2025 Census TIGER tract boundaries** — 53,154 tracts across 23
     coastal states. Downloaded from the Census Bureau TIGER/Line FTP
     server.
 -   **FEMA USA Structures** — National building footprint dataset
-    distributed as state-level `.gdb` files. 72.9M structures
-    nationally; 14.1M retained after tract-based pre-filtering.
+    distributed as state-level `.gdb` files. 77.9M structures loaded
+    across the 23 states; 14.2M (14,196,149) retained after tract-based
+    pre-filtering.
 
 ## Requirements
 
@@ -99,10 +100,18 @@ running.
 ## Documentation
 
 Full pipeline documentation is in
-`docs/NOAA_SLR_methods_pipeline_v3.md`. This covers data sources,
+`docs/NOAA_SLR_methods_pipeline_v4.md`. This covers data sources,
 methodology, performance optimizations, known issues (including the
 Connecticut FIPS fix and Louisiana geometry handling), and output
 schemas.
+
+The exported structures GeoPackages retain the documented USA Structures
+attribution schema (Yang et al. 2024) — 27 attribute fields plus
+geometry. Eight source columns without documented provenance are omitted
+(four documented-unpopulated fields, and four fields absent from the
+published schema with no published methodology, including the modeled
+`pop_*` population estimates). Full field-by-field definitions are in
+the dataset `data_dictionary.md`.
 
 ## Special Cases
 
@@ -118,8 +127,8 @@ using state prefix and tract suffix matching.
 
 ## Coverage
 
-21 coastal states: AL, CA, CT, DE, FL, GA, LA, MA, MD, ME, MS, NC, NH,
-NJ, NY, OR, RI, SC, TX, VA, WA
+23 coastal states: AL, CA, CT, DC, DE, FL, GA, LA, MA, MD, ME, MS, NC,
+NH, NJ, NY, OR, PA, RI, SC, TX, VA, WA
 
 ## Authors
 
