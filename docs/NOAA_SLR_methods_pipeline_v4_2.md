@@ -801,7 +801,7 @@ MS     1,736,779      167,798    9.7%
 
 The script `analyze_structure_slr_flooding_v2_1.R` and its companion config file `structure_analysis_config_v3.yaml` determine which pre-filtered structures (from Section 2.5) intersect SLR inundation polygons (from Section 2.3) at each of the 11 SLR scenarios. The script generates 253 output tables with the naming convention `flooded_structures_FF_Xft`, where FF = 2-digit state FIPS code and X = SLR level (0 to 10, in feet).
 
-Each output row contains the full FEMA record for a structure that touches SLR inundation at the given scenario, including the building footprint geometry, the original FEMA attributes, and the `tract_geoid` column carried forward from Section 2.5. All metadata is preserved in every scenario table (not just 0ft), so each table is self-contained and usable without downstream joins — particularly important for collaborators working in ArcGIS who may load individual scenario layers independently. (The database tables retain the complete FEMA record; the GeoPackage export in Section 2.7 restricts output to the 27 documented-provenance fields.)
+Each output row contains the full FEMA record for a structure that touches SLR inundation at the given scenario, including the building footprint geometry, the original FEMA attributes, and the `tract_geoid` column carried forward from Section 2.5. All metadata is preserved in every scenario table (not just 0ft), so each table is self-contained and usable without downstream joins — particularly important for collaborators working in ArcGIS who may load individual scenario layers independently. (The database tables retain the complete FEMA record; the GeoPackage export in Section 2.7 restricts output to the 26 documented-provenance fields.)
 
 ### Method
 
@@ -923,14 +923,15 @@ Connecticut's `tract_geoid` column in `flooded_structures_09_Xft` uses the new p
 
 ### Exported fields
 
-The export uses an explicit column whitelist rather than `SELECT *`, restricting the output to fields with documented provenance. Each exported layer contains **27 attribute fields plus geometry**: the documented USA Structures attribution schema (Yang et al. 2024), two documented additions (`prop_cnty`, a FEMA distribution addition; and `tract_geoid`, added by this pipeline), and the `geom` geometry column.
+The export uses an explicit column whitelist rather than `SELECT *`, restricting the output to fields with documented provenance. Each exported layer contains **26 attribute fields plus geometry**: the 25 documented USA Structures attribution fields from Yang et al. 2024, Table 2, one pipeline-added field (`tract_geoid`), and the `geom` geometry column.
 
-Eight columns present in the source FEMA distribution are omitted, in two categories:
+Nine columns present in the source FEMA distribution are omitted, in three categories:
 
 -   **Unpopulated per Yang et al. 2024, Table 2** (documented as containing no data): `sec_occ`, `outbldg`, `h_adj_elev`, `l_adj_elev`.
 -   **Absent from the published USA Structures schema and lacking any published derivation methodology:** `b_code`, `pop_median`, `pop_ci95_lower`, `pop_ci95_upper`.
+-   **A later FEMA distribution add-on, inconsistently present:** `prop_cnty`. This field is not part of the Yang et al. 2024 schema and is present in only 18 of the 23 state tables. The 23 `usa_structures_FF` tables were loaded from two different USA Structures release vintages: the newer release (18 states) includes `prop_cnty`, `b_code`, and the `pop_*` fields, while the earlier release (California, Maryland, Massachusetts, New Jersey, Pennsylvania) does not. Because `prop_cnty` is undocumented and absent from five states, it is dropped so that all 23 states export an identical schema. Every retained field is present across all 23 states in both vintages.
 
-The `pop_*` fields are per-structure modeled population estimates (a median with a 95% confidence interval) that appear in the FEMA distribution but are not part of the peer-reviewed USA Structures schema and carry no published methodology; they are not Census counts. Restricting the export to documented-provenance fields keeps the published dataset interpretable and citable. Users requiring current population figures should join their own Census/ACS data to `tract_geoid` (see Section 2.8, "Population data"). A complete field-by-field definition is provided in the dataset `data_dictionary.md`.
+The `pop_*` fields are per-structure modeled population estimates (a median with a 95% confidence interval) that appear in the FEMA distribution but are not part of the peer-reviewed USA Structures schema and carry no published methodology; they are not Census counts. Restricting the export to documented-provenance fields common to both release vintages keeps the published dataset interpretable, citable, and schema-uniform across states. Users requiring current population figures should join their own Census/ACS data to `tract_geoid` (see Section 2.8, "Population data"). A complete field-by-field definition is provided in the dataset `data_dictionary.md`.
 
 ### Configuration
 
@@ -971,7 +972,7 @@ Rscript export_flooded_structures_v2.R \
 
 -   23 GeoPackage files named `flooded_structures_SS.gpkg`, where SS = 1 of 23 state abbreviations
 -   11 layers per file, named `SLR_0ft` through `SLR_10ft`
--   Each layer contains 27 attribute fields plus `geom` (see "Exported fields" below)
+-   Each layer contains 26 attribute fields plus `geom` (see "Exported fields" below)
 -   Files are written to `paths.structures_export_dir` (default: `~/claude_projects/slr_analysis/exports/gpkg`)
 -   Total size: 11 GB across all 23 files
 
