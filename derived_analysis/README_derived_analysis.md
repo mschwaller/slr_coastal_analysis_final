@@ -73,8 +73,9 @@ Written to `~/claude_projects/slr_analysis/exports/SLR_states/`:
     `blkgrp_2010`, `blkgrp_2020`, `places_2020`, `places_2020_name`.
 -   `summary_blkgrp_2010.csv`, `summary_blkgrp_2020.csv`,
     `summary_places_2020.csv` — per-geography counts: `n_total`,
-    `n_sfd_total`, `SLR_0ft`–`SLR_10ft` (total flooded per level), and
-    `sfd_SLR_0ft`–`sfd_SLR_10ft` (SFDs flooded per level).
+    `SLR_0ft`–`SLR_10ft` (total flooded per level), and, for each
+    occupancy breakout (`sfd_`, `manuf_`, `mfd_`, `res_`), an
+    `n_<prefix>_total` plus `<prefix>_SLR_0ft`–`<prefix>_SLR_10ft` set.
 -   `dedup_log.csv` — boundary-tie duplicates dropped per state.
 -   `dropped_invalid_geometries.csv` — footprints dropped for
     unrepairable or empty geometry, with reason.
@@ -110,13 +111,29 @@ variants (`GEOID`, `GEO_ID`, `GEOID10`, `GEOID20`, `GEO_ID10`,
 `GEO_ID20`) and any Census `<level>US` prefix is stripped so 2010 and
 2020 GEOIDs share a bare format for downstream joins.
 
-**Single-family dwellings.** SFDs are identified by
-`prim_occ == "Single Family Dwelling"` (a FEMA `prim_occ` value;
-`occ_cls` holds only broad categories such as Residential). SFD summary
-counts are computed by filtering to SFD rows *before* grouping, so each
-`sfd_SLR_Xft` count is the number of single-family dwellings in that
-geography flooded at level X and can never exceed the corresponding
-total.
+**Occupancy breakouts.** Alongside overall totals, each summary table
+breaks out counts for four occupancy categories, defined in a config
+block (`OCC_BREAKOUTS`) at the top of the script:
+
+| Prefix   | Field      | Value                     |
+|----------|------------|---------------------------|
+| `sfd_`   | `prim_occ` | `Single Family Dwelling`  |
+| `manuf_` | `prim_occ` | `Manufactured Home`       |
+| `mfd_`   | `prim_occ` | `Multi - Family Dwelling` |
+| `res_`   | `occ_cls`  | `Residential`             |
+
+Each produces an `n_<prefix>_total` and
+`<prefix>_SLR_0ft`–`<prefix>_SLR_10ft` set, counted by filtering to the
+subset *before* grouping, so a per-SLR category count can never exceed
+the corresponding total. Note that `occ_cls == "Residential"` overlaps
+the `prim_occ` categories (a single-family dwelling is also
+Residential), so `res_` counts are inclusive of the others and the
+category columns are **not** mutually exclusive — they do not sum to
+`n_total`. A preflight check verifies each configured string exists in
+the first state's data and stops the run if any don't match, avoiding
+silent all-zero columns. Exact strings matter and vary by FEMA vintage
+(e.g. `Manufactured Home` is singular; `Multi - Family Dwelling` has
+spaces around the hyphen).
 
 **Per-state isolation.** Each state is processed inside a `tryCatch` so
 a single failure (e.g. a corrupt `.gdb` or a `tigris` download error) is

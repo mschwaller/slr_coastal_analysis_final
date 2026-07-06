@@ -41,7 +41,7 @@
 # *************
 # 1. Setup ----
 
-SCRIPT_VERSION <- "v15 (2026-07-05)"
+SCRIPT_VERSION <- "v16 (2026-07-05)"
 cat("==== 2-01_flooded_structures_geocoded", SCRIPT_VERSION, "====\n")
 
 footprints_dir <- "~/Science/Nora_SLR/house_footprints/"
@@ -70,6 +70,22 @@ WORKING_CRS <- 5070
 # usually means the centroid fell just outside a generalized (cb = TRUE)
 # coastline. Snap within this distance; beyond it, leave NA (and log it).
 BG_SNAP_MAX_M <- 500
+
+# Occupancy breakouts: each produces its own n_<prefix>_total and
+# <prefix>_SLR_0ft..10ft columns in every summary table, counted the same safe
+# way as the totals (filter to the subset BEFORE grouping). Exact strings matter
+# - a value that doesn't appear in the data yields silent all-zero columns, so
+# the preflight check below verifies each against the first state's gpkg and
+# stops the run if any don't match.
+#   Note: occ_cls == "Residential" OVERLAPS the prim_occ categories (an SFD is
+#   also Residential), so res_ counts are inclusive of sfd_/manuf_/mfd_ and the
+#   category columns are not mutually exclusive and do not sum to n_total.
+OCC_BREAKOUTS <- list(
+  sfd   = list(field = "prim_occ", value = "Single Family Dwelling"),
+  manuf = list(field = "prim_occ", value = "Manufactured Home"),
+  mfd   = list(field = "prim_occ", value = "Multi - Family Dwelling"),
+  res   = list(field = "occ_cls",  value = "Residential")
+)
 
 # ntfy.sh push notification (matches the rest of the pipeline's job monitoring).
 # Uses system2 with argument vectors so message/title text (which can contain
@@ -113,6 +129,34 @@ states    <- states[file.exists(paste0(slr_dir, "flooded_structures_", states, "
 
 cat("States to process:", paste(states, collapse = ", "), "\n")
 
+# --- preflight: verify occupancy breakout strings exist in the data ---
+# A configured value that doesn't appear yields silent all-zero columns, so
+# check each against a sample of the FIRST state's gdb and STOP before the run
+# if any don't match. (prim_occ / occ_cls vocabularies are standardized across
+# the national FEMA dataset, so checking one state is sufficient in practice.)
+if (length(states) > 0) {
+  pf_gdb   <- paste0(footprints_dir, states[1], "_Structures.gdb")
+  pf_layer <- st_layers(pf_gdb)$name[1]
+  pf <- st_read(pf_gdb,
+                query = paste0('SELECT * FROM "', pf_layer, '" LIMIT 50000'),
+                quiet = TRUE)
+  names(pf) <- tolower(names(pf))
+  cat("Preflight: checking occupancy breakout strings against", states[1], "...\n")
+  for (pfx in names(OCC_BREAKOUTS)) {
+    b <- OCC_BREAKOUTS[[pfx]]
+    if (!(b$field %in% names(pf)))
+      stop("Preflight: field '", b$field, "' (breakout '", pfx,
+           "') not found in ", states[1], " gdb.")
+    if (!(b$value %in% pf[[b$field]]))
+      stop("Preflight: value '", b$value, "' not found in ", b$field,
+           " (breakout '", pfx, "'). Present values include: ",
+           paste(head(sort(unique(pf[[b$field]])), 20), collapse = " | "))
+    cat("   OK:", pfx, "->", b$field, "==", shQuote(b$value), "\n")
+  }
+  rm(pf)
+  cat("Preflight passed.\n")
+}
+
 # tracks duplicate build_id rows dropped per state (from boundary st_join ties)
 dedup_log <- data.frame(state = character(), n_before = integer(),
                         n_after = integer(), n_dropped = integer())
@@ -141,22 +185,29 @@ place_names_list <- list()
 total_footprints <- 0L   # running count for the completion notification
 
 #' Summarise one geography within a single state's attribute table:
-#' total count + per-SLR flooded totals, plus the SFD-only equivalents, joined.
-#' SFDs are filtered BEFORE grouping so per-SLR SFD counts cannot misalign.
-summarize_state <- function(df, sfd_df, geo_col, slr_cols) {
-  total <- df %>%
+#' total count + per-SLR flooded totals, plus, for each configured occupancy
+#' breakout, an n_<prefix>_total and <prefix>_SLR_* set. Each breakout is
+#' filtered from `df` BEFORE grouping so its per-SLR counts cannot misalign.
+summarize_state <- function(df, geo_col, slr_cols, breakouts) {
+  out <- df %>%
     group_by(.data[[geo_col]]) %>%
     summarise(n_total = n(),
               across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE)),
               .groups = "drop")
-  sfd <- sfd_df %>%
-    group_by(.data[[geo_col]]) %>%
-    summarise(n_sfd_total = n(),
-              across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE), .names = "sfd_{.col}"),
-              .groups = "drop")
-  out <- left_join(total, sfd, by = geo_col)
-  sfd_out <- c("n_sfd_total", paste0("sfd_", slr_cols))
-  for (cc in sfd_out) if (cc %in% names(out)) out[[cc]][is.na(out[[cc]])] <- 0L
+
+  for (pfx in names(breakouts)) {
+    b   <- breakouts[[pfx]]
+    sub <- df[df[[b$field]] == b$value & !is.na(df[[b$field]]), , drop = FALSE]
+    sub_sum <- sub %>%
+      group_by(.data[[geo_col]]) %>%
+      summarise(!!paste0("n_", pfx, "_total") := n(),
+                across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE),
+                       .names = paste0(pfx, "_{.col}")),
+                .groups = "drop")
+    out <- left_join(out, sub_sum, by = geo_col)
+    fill_cols <- c(paste0("n_", pfx, "_total"), paste0(pfx, "_", slr_cols))
+    for (cc in fill_cols) if (cc %in% names(out)) out[[cc]][is.na(out[[cc]])] <- 0L
+  }
   out
 }
 
@@ -432,13 +483,12 @@ for (st in states) {
   # --- summarize THIS state now, keep only the small tables (memory-safe) ---
   attrs   <- fp %>% st_drop_geometry()
   slr_cols <- grep("^SLR_", names(attrs), value = TRUE)
-  sfd_attrs <- attrs %>% filter(prim_occ == "Single Family Dwelling")
-  acc_2010[[st]]   <- summarize_state(attrs, sfd_attrs, "blkgrp_2010", slr_cols)
-  acc_2020[[st]]   <- summarize_state(attrs, sfd_attrs, "blkgrp_2020", slr_cols)
-  acc_places[[st]] <- summarize_state(attrs, sfd_attrs, "places_2020", slr_cols)
+  acc_2010[[st]]   <- summarize_state(attrs, "blkgrp_2010", slr_cols, OCC_BREAKOUTS)
+  acc_2020[[st]]   <- summarize_state(attrs, "blkgrp_2020", slr_cols, OCC_BREAKOUTS)
+  acc_places[[st]] <- summarize_state(attrs, "places_2020", slr_cols, OCC_BREAKOUTS)
   place_names_list[[st]] <- attrs %>% distinct(places_2020, places_2020_name)
   total_footprints <- total_footprints + nrow(attrs)
-  rm(attrs, sfd_attrs)   # free this state's rows before the next iteration
+  rm(attrs)   # free this state's rows before the next iteration
 
   state_elapsed <- round(as.numeric(difftime(Sys.time(), state_start, units = "mins")), 1)
   cat("  saved ->", out_path, "  (", state_elapsed, "min )\n")
@@ -484,11 +534,6 @@ cat("Block-group snap log saved ->", bg_snap_path,
 
 # *************
 # 4. SLR summary tables by geography ----
-# for each geography level: total property count + total 1's per SLR layer,
-# plus single-family-dwelling (SFD) counts, grouped by that geography's GEOID
-
-# *************
-# 4. SLR summary tables by geography ----
 # Each state already computed its own per-geography summary inside the loop
 # (memory-safe). Here we just row-bind the small per-state tables: block groups
 # and places never cross state lines, so each geography appears in exactly one
@@ -505,15 +550,20 @@ summary_places <- summary_places %>%
   left_join(place_names, by = "places_2020") %>%
   relocate(places_2020_name, .after = places_2020)
 
-# sanity check: no per-SLR SFD count may exceed its total
-slr_cols <- grep("^SLR_", names(summary_2020), value = TRUE)
-slr_cols <- slr_cols[!grepl("^sfd_", slr_cols)]
+# sanity check: no per-SLR breakout count may exceed its SLR total
+base_slr <- grep("^SLR_", names(summary_2020), value = TRUE)
 violations <- 0
-for (sc in slr_cols) {
-  violations <- violations +
-    sum(summary_2020[[paste0("sfd_", sc)]] > summary_2020[[sc]], na.rm = TRUE)
+for (pfx in names(OCC_BREAKOUTS)) {
+  for (sc in base_slr) {
+    bcol <- paste0(pfx, "_", sc)
+    if (bcol %in% names(summary_2020)) {
+      violations <- violations +
+        sum(summary_2020[[bcol]] > summary_2020[[sc]], na.rm = TRUE)
+    }
+  }
 }
-cat("Sanity check: rows where sfd_SLR > SLR total:", violations, "(should be 0)\n")
+cat("Sanity check: rows where any breakout_SLR > SLR total:", violations,
+    "(should be 0)\n")
 
 write.csv(summary_2010,   paste0(out_dir, "summary_blkgrp_2010.csv"), row.names = FALSE)
 write.csv(summary_2020,   paste0(out_dir, "summary_blkgrp_2020.csv"), row.names = FALSE)
