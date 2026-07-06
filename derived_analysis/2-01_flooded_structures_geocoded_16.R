@@ -41,7 +41,7 @@
 # *************
 # 1. Setup ----
 
-SCRIPT_VERSION <- "v14 (2026-07-03)"
+SCRIPT_VERSION <- "v15 (2026-07-05)"
 cat("==== 2-01_flooded_structures_geocoded", SCRIPT_VERSION, "====\n")
 
 footprints_dir <- "~/Science/Nora_SLR/house_footprints/"
@@ -128,8 +128,37 @@ bg_snap_log <- data.frame(state = character(), build_id = character(),
                           dist_m = numeric(), within_threshold = logical(),
                           stringsAsFactors = FALSE)
 
-# accumulates non-spatial data across all states for the summary tables in step 3
-all_data_list <- list()
+# Per-geography summary accumulators. Rather than accumulating every state's
+# raw rows and binding ~70M rows at the end (which exhausts RAM and gets the
+# process OOM-killed), each state computes its own small summary tables inside
+# the loop; only those (a few thousand rows per state) are accumulated here.
+# Block groups and places do not cross state lines, so a plain row-bind of the
+# per-state summaries at the end is exact - no cross-state re-aggregation.
+acc_2010    <- list()
+acc_2020    <- list()
+acc_places  <- list()
+place_names_list <- list()
+total_footprints <- 0L   # running count for the completion notification
+
+#' Summarise one geography within a single state's attribute table:
+#' total count + per-SLR flooded totals, plus the SFD-only equivalents, joined.
+#' SFDs are filtered BEFORE grouping so per-SLR SFD counts cannot misalign.
+summarize_state <- function(df, sfd_df, geo_col, slr_cols) {
+  total <- df %>%
+    group_by(.data[[geo_col]]) %>%
+    summarise(n_total = n(),
+              across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE)),
+              .groups = "drop")
+  sfd <- sfd_df %>%
+    group_by(.data[[geo_col]]) %>%
+    summarise(n_sfd_total = n(),
+              across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE), .names = "sfd_{.col}"),
+              .groups = "drop")
+  out <- left_join(total, sfd, by = geo_col)
+  sfd_out <- c("n_sfd_total", paste0("sfd_", slr_cols))
+  for (cc in sfd_out) if (cc %in% names(out)) out[[cc]][is.na(out[[cc]])] <- 0L
+  out
+}
 
 #' Snap centroids with a missing block-group GEOID to the nearest block group.
 #'
@@ -395,19 +424,28 @@ for (st in states) {
   fp$places_2020      <- geo$places_2020[idx]
   fp$places_2020_name <- geo$places_2020_name[idx]
 
-  # --- accumulate non-spatial rows for summary tables ---
-  all_data_list[[st]] <- fp %>% st_drop_geometry()
-
   # --- save full-polygon file (geometry + flags + geography + occupancy) ---
   out_path <- paste0(out_dir, st, "_footprints_slr_geocoded.gpkg")
   st_write(fp, out_path, layer = paste0(st, "_footprints_slr_geocoded"),
            delete_dsn = TRUE, quiet = TRUE)
 
+  # --- summarize THIS state now, keep only the small tables (memory-safe) ---
+  attrs   <- fp %>% st_drop_geometry()
+  slr_cols <- grep("^SLR_", names(attrs), value = TRUE)
+  sfd_attrs <- attrs %>% filter(prim_occ == "Single Family Dwelling")
+  acc_2010[[st]]   <- summarize_state(attrs, sfd_attrs, "blkgrp_2010", slr_cols)
+  acc_2020[[st]]   <- summarize_state(attrs, sfd_attrs, "blkgrp_2020", slr_cols)
+  acc_places[[st]] <- summarize_state(attrs, sfd_attrs, "places_2020", slr_cols)
+  place_names_list[[st]] <- attrs %>% distinct(places_2020, places_2020_name)
+  total_footprints <- total_footprints + nrow(attrs)
+  rm(attrs, sfd_attrs)   # free this state's rows before the next iteration
+
   state_elapsed <- round(as.numeric(difftime(Sys.time(), state_start, units = "mins")), 1)
   cat("  saved ->", out_path, "  (", state_elapsed, "min )\n")
   send_notification(
     paste0(st, " geocoded"),
-    paste0(nrow(fp), " footprints, ", length(layer_names),
+    paste0(format(Sys.time(), "%Y-%m-%d %H:%M"), " | ", st, " | ",
+           nrow(fp), " footprints, ", length(layer_names),
            " SLR layers, ", state_elapsed, " min")
   )
 
@@ -416,7 +454,9 @@ for (st in states) {
     # per-state .gpkg files already written are unaffected; only this state's
     # contribution to the summary tables is lost.
     cat("   ERROR processing", st, "-> skipped:", conditionMessage(e), "\n")
-    send_notification(paste0(st, " FAILED"), conditionMessage(e))
+    send_notification(paste0(st, " FAILED"),
+                      paste0(format(Sys.time(), "%Y-%m-%d %H:%M"), " | ", st,
+                             " | ", conditionMessage(e)))
   })
 }
 
@@ -447,82 +487,43 @@ cat("Block-group snap log saved ->", bg_snap_path,
 # for each geography level: total property count + total 1's per SLR layer,
 # plus single-family-dwelling (SFD) counts, grouped by that geography's GEOID
 
-all_data <- bind_rows(all_data_list)
-slr_cols <- grep("^SLR_", names(all_data), value = TRUE)
+# *************
+# 4. SLR summary tables by geography ----
+# Each state already computed its own per-geography summary inside the loop
+# (memory-safe). Here we just row-bind the small per-state tables: block groups
+# and places never cross state lines, so each geography appears in exactly one
+# state's table and a plain bind is exact - no re-aggregation needed.
 
-# SFD summaries: for each geography, count all properties, then separately count
-# the SFD-only subset, then join the two together. Filtering to SFD rows BEFORE
-# grouping means the SFD counts are computed exactly like the totals - a plain
-# sum of each SLR flag within the group - so they can't misalign.
-sfd_data <- all_data %>% filter(prim_occ == "Single Family Dwelling")
+summary_2010   <- bind_rows(acc_2010)
+summary_2020   <- bind_rows(acc_2020)
+summary_places <- bind_rows(acc_places)
 
-
-# ---- 2010 block groups ----
-total_2010 <- all_data %>%
-  group_by(blkgrp_2010) %>%
-  summarise(n_total = n(),
-            across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE)),
-            .groups = "drop")
-
-sfd_2010 <- sfd_data %>%
-  group_by(blkgrp_2010) %>%
-  summarise(n_sfd_total = n(),
-            across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE), .names = "sfd_{.col}"),
-            .groups = "drop")
-
-summary_2010 <- left_join(total_2010, sfd_2010, by = "blkgrp_2010")
-summary_2010[is.na(summary_2010)] <- 0   # geographies with no SFDs -> 0
-
-write.csv(summary_2010, paste0(out_dir, "summary_blkgrp_2010.csv"), row.names = FALSE)
-
-
-# ---- 2020 block groups ----
-total_2020 <- all_data %>%
-  group_by(blkgrp_2020) %>%
-  summarise(n_total = n(),
-            across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE)),
-            .groups = "drop")
-
-sfd_2020 <- sfd_data %>%
-  group_by(blkgrp_2020) %>%
-  summarise(n_sfd_total = n(),
-            across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE), .names = "sfd_{.col}"),
-            .groups = "drop")
-
-summary_2020 <- left_join(total_2020, sfd_2020, by = "blkgrp_2020")
-summary_2020[is.na(summary_2020)] <- 0
-
-write.csv(summary_2020, paste0(out_dir, "summary_blkgrp_2020.csv"), row.names = FALSE)
-
-
-# ---- 2020 census places ----
-total_places <- all_data %>%
-  group_by(places_2020) %>%
-  summarise(n_total = n(),
-            across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE)),
-            .groups = "drop")
-
-sfd_places <- sfd_data %>%
-  group_by(places_2020) %>%
-  summarise(n_sfd_total = n(),
-            across(all_of(slr_cols), ~ sum(.x, na.rm = TRUE), .names = "sfd_{.col}"),
-            .groups = "drop")
-
-summary_places <- left_join(total_places, sfd_places, by = "places_2020")
-summary_places[is.na(summary_places)] <- 0
-
-# reattach the readable place name (dropped by grouping on GEOID alone)
-place_names <- all_data %>% distinct(places_2020, places_2020_name)
+# reattach readable place names (dropped by grouping on GEOID alone)
+place_names <- bind_rows(place_names_list) %>%
+  distinct(places_2020, places_2020_name)
 summary_places <- summary_places %>%
   left_join(place_names, by = "places_2020") %>%
   relocate(places_2020_name, .after = places_2020)
 
+# sanity check: no per-SLR SFD count may exceed its total
+slr_cols <- grep("^SLR_", names(summary_2020), value = TRUE)
+slr_cols <- slr_cols[!grepl("^sfd_", slr_cols)]
+violations <- 0
+for (sc in slr_cols) {
+  violations <- violations +
+    sum(summary_2020[[paste0("sfd_", sc)]] > summary_2020[[sc]], na.rm = TRUE)
+}
+cat("Sanity check: rows where sfd_SLR > SLR total:", violations, "(should be 0)\n")
+
+write.csv(summary_2010,   paste0(out_dir, "summary_blkgrp_2010.csv"), row.names = FALSE)
+write.csv(summary_2020,   paste0(out_dir, "summary_blkgrp_2020.csv"), row.names = FALSE)
 write.csv(summary_places, paste0(out_dir, "summary_places_2020.csv"), row.names = FALSE)
 
 cat("\nSummary tables saved to", out_dir, "\n")
 
 send_notification(
   "SLR geocode complete",
-  paste0(length(states), " states, ", nrow(all_data),
+  paste0(format(Sys.time(), "%Y-%m-%d %H:%M"), " | ",
+         length(states), " states, ", total_footprints,
          " footprints total. Summaries written.")
 )
