@@ -1,0 +1,42 @@
+# Configuration file for downloading sea level rise datasets from the NOAA website:
+# https://coast.noaa.gov/slrdata/Ancillary/index.html
+#
+# THIS COPY: LA 1 ft only, for re-downloading LA_merged_slr_1_0ft.* after the
+# original download was found to be truncated by 386 MB (26%).
+#
+# Before running, delete the damaged files -- v4 will detect and replace a bad
+# .shp automatically, but the sidecars (.dbf, .shx, .sbn ...) are not checked
+# and should be replaced alongside it:
+#
+#   rm ~/Science/Nora_SLR/SLR_downloads_1_ft/LA_merged_slr_1_0ft.*
+
+########### NOAA directories and files (these are more-or-less constant) ###########
+# path to the shapefiles and ancillary data
+NOAA_base_url : "https://coast.noaa.gov/slrdata/Ancillary/NOAA_OCM_SLR_MergedPolys_Shapefiles_0225/"
+# extension names of the shapefiles and ancillary data we want to download
+# NOTE: "xml" produces a request for <name>.xml, but the metadata file appears
+# on disk as <name>.shp.xml. Confirm which name NOAA serves before relying on
+# it; a 404 under v3 would have written an HTML error page to disk, though v4
+# deletes non-200 responses.
+extension_names : ["cpg", "dbf", "prj", "sbn", "sbx", "shp", "xml", "shx"]
+
+########### filename formatting to specify the files we want to download ###########
+########### these pieces may vary depending on which specific files we want ########
+########### a typical file looks like this: MS_AL_merged_slr_3.0_ft.shp ############
+########### where MS_AL is the location name (here = Mississippi & Alabama) ########
+########### merged_slr = sea level rise vector (merged_low) = low areas ############
+########### 3.0_ft = vectors for 3 ft of sea level rise ############################
+########### .shp = file extension as defined above #################################
+# Location names to download
+location_names : ["LA"]
+# vector type to download (may be slr or low)
+vector_type : "slr"
+# sea level rise height (may be integer values from 0 to 10)
+slr_height  : 1
+
+# download directory name
+# NOTE: this is the TRIPPER3 path. The original config pointed at
+# ~/!Essentials/Nora_SLR/SLR_downloads, which is the macOS location; on
+# TRIPPER3 each scenario lives in its own SLR_downloads_<N>_ft directory and
+# the ingest reads from there.
+download_directory : "~/Science/Nora_SLR/SLR_downloads_1_ft"
