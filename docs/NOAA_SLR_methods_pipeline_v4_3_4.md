@@ -224,7 +224,7 @@ MS_AL_merged_slr_3_0ft.shx
 
 ### R Download Script
 
-The R script to download the NOAA SLR vector polygon shapefiles and ancillary data is `NOAA_SLR_downloader_v3.R`, which is controlled by the yaml config file `NOAA_downloads_config_v1.yaml`.
+The R script to download the NOAA SLR vector polygon shapefiles and ancillary data is `NOAA_SLR_downloader_v4.R`, which is controlled by the yaml config file `NOAA_downloads_config_v1.yaml`. Versions through v3 performed no verification of the downloaded files; v4 adds the integrity checking described under *Download integrity* below.
 
 **Note:** The only SLR coastal shapefiles for the conterminous U.S. were downloaded. Shapefiles over Hawaii (Pacific) and, Alaska and the Caribbean were not downloaded.
 
@@ -254,6 +254,26 @@ The practical consequence is that **the same scenario has two different filename
 | 10 ft | `LA_merged_slr_10ft.shp` | `LA_merged_slr_10_0ft.shp` |
 
 Anyone working with a mix of files downloaded directly from NOAA and files taken from this pipeline's download directory can easily end up one scenario off for LA or TX: `LA_merged_slr_2ft.shp` from NOAA is the 2 ft layer, while `LA_merged_slr_2_0ft.shp` here is also the 2 ft layer, but `LA_merged_slr_1ft.shp` and `LA_merged_slr_1_0ft.shp` are likewise the same layer under two names. Users are advised to work from a single source. This normalization applies only to the local filenames; the file contents are exactly as distributed by NOAA.
+
+#### Download integrity, and a truncated Louisiana 1 ft layer
+
+During verification of the ingested data against the source shapefiles, `ogr2ogr` failed to read `LA_merged_slr_1_0ft.shp` from the 0225 download. The file proved to be truncated at 1,086,590,712 bytes against a shapefile header-declared length of 1,472,614,452 — 26% of the layer missing. All 65 other shapefiles in the download matched their declared lengths exactly.
+
+The 0225 release is no longer served by NOAA, which has since published release 0426. The Louisiana 1 ft file in 0426 is 1,472,614,452 bytes, matching the length declared in the 0225 file's own header, and its first 1,086,590,712 bytes are byte-identical to the truncated copy. All ten other Louisiana layers are byte-identical between the two releases, as are all Texas and Mississippi/Alabama layers; the Atlantic, Florida and West regions were regenerated. We conclude that the Louisiana 1 ft layer is unchanged between 0225 and 0426 and that the truncation occurred during download rather than at source. The 0426 file was therefore substituted for the damaged 0225 copy.
+
+The truncated layer had been ingested and propagated into `slr_1ft_22`, `tract_1ft_intersections` and `flooded_structures_22_1ft`, producing Louisiana-specific non-monotonicity at 1 ft (Section 2.10.2). Those products were regenerated following substitution.
+
+`NOAA_SLR_downloader_v4.R` now verifies each download against both the HTTP `Content-Length` header and the shapefile's own declared length, deletes short files rather than leaving them on disk, and retries. A shapefile's `.shp` header records the total file length at bytes 25–28, big-endian, in 16-bit words; comparing that against the size on disk detects truncation independently of anything the HTTP layer reports:
+
+``` r
+shp_declared_length <- function(path) {
+  con <- file(path, "rb"); on.exit(close(con))
+  hdr <- readBin(con, "raw", 100)
+  sum(as.numeric(hdr[25:28]) * c(256^3, 256^2, 256, 1)) * 2
+}
+```
+
+Earlier versions of the downloader skipped any file already present on disk, which meant a damaged file persisted through every subsequent run while each run reported success. v4 verifies an existing file before skipping it.
 
 ### Add SLR Tables to the megaSLR Database
 

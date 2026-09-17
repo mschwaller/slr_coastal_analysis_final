@@ -38,7 +38,7 @@ library(stringr)
 library(beepr)
 
 # the filename of the YAML configuration file
-config_filename <- "~/Science/Nora_SLR/NOAA_downloads_config_v2_LA_1ft_only.yaml"
+config_filename <- "~/claude_projects/slr_coastal_analysis_final/config/NOAA_downloads_config_v2_LA_1ft_only.yaml"
 
 if (!file.exists(config_filename)) {
   cat("can't find the configuration file!\n")
