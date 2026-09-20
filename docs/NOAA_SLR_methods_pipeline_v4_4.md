@@ -623,7 +623,7 @@ Per-tract runtimes for the holdout tracts ranged from 10 minutes to nearly 9 hou
 
 **SUM vs. ST_Union validation.** We were tempted to use the SUM approximation (`SUM(ST_Area(ST_Intersection(...)))`, which skips `ST_Union`) and greatly speeds up processing. Test runs, however, revealed that the SUM( ) overcount from overlapping NOAA source polygons varies substantially by location. Measured differences between SUM( ) and ST_Union( ) ranged from 0.1% (tract 22023970102 in Assumption Parish) to 0.24% (tract 22109001400 in Vermilion Parish) to 27% (tract 22047952701 in Iberville Parish, in the Atchafalaya Basin). The large variance makes the SUM method unsuitable as a general-purpose fallback without per-tract validation, reinforcing the decision to complete all tracts with `ST_Union`.
 
-**Monotonic row growth with SLR level (and an exception)**. There is steady growth in the number of inundated tracts with increasing SLR height over all coastal/tidal states: 6,859 tracts at 0ft, 7,060 at 1ft, 7,298 at 2ft, 7,528 at 3ft, 7,871 at 4ft, 8,332 at 5ft, 8,866 at 6ft, 9,371 at 7ft, 9,789 at 8ft, 10,125 at 9ft, 10,426 at 10ft. This monotonic behavior is expected as SLR inundates progressively more tracts at increasing SLR heights; any deviation may indicate errors in the pipeline methodology or the source data.
+**Monotonic row growth with SLR level (and an exception)**. There is steady growth in the number of inundated tracts with increasing SLR height over all coastal/tidal states: 6,859 tracts at 0ft, 7,108 at 1ft, 7,298 at 2ft, 7,528 at 3ft, 7,871 at 4ft, 8,332 at 5ft, 8,866 at 6ft, 9,371 at 7ft, 9,789 at 8ft, 10,125 at 9ft, 10,426 at 10ft. This monotonic behavior is expected as SLR inundates progressively more tracts at increasing SLR heights; any deviation may indicate errors in the pipeline methodology or the source data.
 
 **The Maine 9 ft exception.** Seven Maine tracts appear in `tract_9ft_intersections` and in **no other scenario table** — they are absent at 0–8 ft and at 10 ft alike. This is a stronger statement than a simple 9ft/10ft discrepancy: the tracts do not drop out at the top of the range, they appear at a single intermediate scenario and are absent on both sides. Because NOAA's inundation extents grow with water level by construction, a tract with inundated area at 9 ft must have at least as much area at 10 ft; the observed pattern is therefore an artifact of the source polygons rather than a physical result.
 
@@ -1168,9 +1168,9 @@ Rscript export_flooded_tracts_v2.R \
 | `slr_Xft_FF` subdivided tables        |                         253 |
 | `tract_Xft_intersections` tables      |                          11 |
 | Flooded tracts range                  | 6,859 (0ft) → 10,426 (10ft) |
-| Total tract×scenario rows             |                      93,525 |
+| Total tract×scenario rows             |                      93,573 |
 | `flooded_structures_FF_Xft` tables    |                         253 |
-| Total flooded structure rows          |                  17,608,770 |
+| Total flooded structure rows          |                  17,615,333 |
 | Total structure×scenario combinations |                 156,157,639 |
 | Overall flood rate                    |                      11.28% |
 | Flooded structures GPKGs              |             23 files, 11 GB |
@@ -1178,7 +1178,7 @@ Rscript export_flooded_tracts_v2.R \
 
 **Flooded Structures**
 
-\| **SLR Scenario** \| **Flooded Structures** \| \|-------------\|-----------------\| \| 0ft \| 100,912 \| \| 1ft \| 139,868 \| \| 2ft \| 253,356 \| \| 3ft \| 498,628 \| \| 4ft \| 845,181 \| \| 5ft \| 1,277,606 \| \| 6ft \| 1,820,450 \| \| 7ft \| 2,442,812 \| \| 8ft \| 2,966,822 \| \| 9ft \| 3,408,049 \| \| 10ft \| 3,855,086 \|
+\| **SLR Scenario** \| **Flooded Structures** \| \|-------------\|-----------------\| \| 0ft \| 100,912 \| \| 1ft \| 146,431 \| \| 2ft \| 253,356 \| \| 3ft \| 498,628 \| \| 4ft \| 845,181 \| \| 5ft \| 1,277,606 \| \| 6ft \| 1,820,450 \| \| 7ft \| 2,442,812 \| \| 8ft \| 2,966,822 \| \| 9ft \| 3,408,049 \| \| 10ft \| 3,855,086 \|
 
 ------------------------------------------------------------------------
 
@@ -1188,9 +1188,15 @@ Rscript export_flooded_tracts_v2.R \
 
 Under NOAA's modified-bathtub method (Section 2.1), inundation extent should increase as SLR increases. By definition, any spatial extent inundated at SLR N ft is inundated at SLR N+1 ft. Both of the derived products in this dataset (tract inundated area and flooded structures) should therefore exhibit a monotonic increase in SLR across all eleven scenarios. However, flooded tracts and structures in this derived dataset demonstrate small non-monotonic deviations. This section describes the mechanisms behind the deviations and quantifies their effect.
 
-Two independent classes of non-monotonic behavior are present in the dataset. The first relates to anomalous "spikes" in inundated area [per tract]{.underline} compared to tracts at adjacent lower and higher SLR scenarios; the second relates to [per structure]{.underline} state (flooded or unflooded) across the full scenario sequence. Non-monotonic behavior in these two classes is completely uncoupled: of the 2,185 structures with non-monotonic flooding [none]{.underline} fall in a tract flagged as non-monotonic in terms of inundation. The two classes are treated below in Sections 2.10.1 and 2.10.2.
+Two independent classes of non-monotonic behavior are present in the dataset. The first relates to anomalies in inundated area [per tract]{.underline} compared to tracts at adjacent lower and higher SLR scenarios; the second relates to [per structure]{.underline} state (flooded or unflooded) across the full scenario sequence. Non-monotonic behavior in these two classes is completely uncoupled: of the 303 structures with non-monotonic flooding [none]{.underline} fall in a tract flagged as non-monotonic in terms of inundation. The two classes are treated below in Sections 2.10.1 and 2.10.2.
+
+The figures reported throughout this section were recomputed after the Louisiana 1 ft layer was found to be truncated and was replaced (Section 2.1). Before that correction, an additional 1,882 Louisiana structures and 16 Louisiana tracts registered as non-monotonic; none of those cases survives in the corrected data. All Louisiana-specific non-monotonicity in this dataset was an artifact of the incomplete source file.
 
 ### 2.10.1 Tract non-monotonic inundation
+
+Tract inundated area was tested for non-monotonicity in [both directions]{.underline}: *spikes*, where `slr_area_ha` at scenario N exceeds the value at both N−1 and N+1, and *dips*, where it falls below both. A test in only one direction would have missed the other entirely; the dip results below are not a subset of the spike results, and two tracts appear in both.
+
+#### Spikes
 
 For each SLR scenario N in 1…9 ft, a number of tracts were identified with a non-monotonic "spike" behavior where `slr_area_ha` at N exceeds the value at both N−1 and N+1. However, a strict inequality is unusable to test non-monotonic behavior in this case: `ST_Area` on independently unioned geometry does not return bit-identical values across scenarios, so tracts that are fully inundated at several consecutive scenarios may trigger a strict test on differences of a few square meters or less. Furthermore, NOAA’s documentation (<https://coast.noaa.gov/data/digitalcoast/pdf/slr-faq.pdf>) notes that the underlying lidar DEMs on which their product is based have a vertical accuracy of ≤10 cm RMSE, and NOAA recommends rounding to the nearest one-foot. Sub-foot polygon boundary differences between SLR scenarios are therefore expected to propagate into errors in estimating flooded area. A relative tolerance of 0.1% of tract inundated area was therefore applied to minimize triggering the test for non-monotonic tract flooding at or below the expected error level of the source dataset.
 
@@ -1200,9 +1206,30 @@ The non-monotonic tract flooding falls into three groups:
 
 **1) Flooding that appears only once in the state of Maine, at SLR 9 ft (7 cases).** As described in Section 2.4, there are 7 tracts, all in Maine, with a positive SLR 9 ft inundation area but where the inundated area is [zero at every other scenario]{.underline}, including 8 ft and 10 ft. These are the only exceptions where inundation is present at one scenario and absent at both lower and higher SLR scenario levels. This anomaly was traced to a malformed interior ring (a hole) within the large SLR 9 ft inundation polygon of the "atlantic" region (Section 1.2) shapefile provided by NOAA. The ring carries only ~109 vertices, but one of them lies some 120 km west of all the others at very nearly the same northing. The long near-horizontal edges reaching out to that isolated vertex cross the polygon's exterior boundary, rendering the geometry self-intersecting and invalid. Our derived dataset processing pipeline used the ST_MakeValid function to repair self-intersecting polygons present in the NOAA SLR shapefiles (Section 2.3). Automated repair of an invalid polygon is necessarily an interpretation of ambiguous input, and different implementations resolve the same geometry differently (Ledoux et al. 2014). In this case, the repair performed by ST_MakeValid corrected the self-intersection but also produced a long thin "ribbon" approximately 4 m wide and 120 km long from the vector coastline to the anomalous point, see Figure 2.10.1.A. This ribbon crosses 7 Maine tracts causing them to register as partially flooded, but this occurs just once and only in the SLR 9 ft scenario. The ribbon surrounds 9 structures, but because the 7 tracts are absent from the 10 ft pre-filter (Section 2.5), none of these structures were loaded into the structure tables. The published structure product is therefore unaffected: no structure in the released dataset is flagged on the basis of this artifact.
 
-**2) "Sliver polygons" (40 cases).** Tracts were found in NC (14), VA (11), SC (10), PA (3), GA (1), and NY (1) where inundation at one SLR level slightly exceeds the inundation at the next higher SLR level. 39 of these cases were found at SLR 3 ft, and one at SLR 2 ft. The flooded area polygons in these cases range from a minimum of 0.01 to a maximum of 0.67 m in mean width, in 26,952 disconnected parts, across 566 km of perimeter. Visual inspection of a sample of these cases found that they follow inland watercourses along tract boundaries and are shaped like thin "slivers" adjacent to the water and tract bounds. These 40 cases average 0.206 ha in flooded area in excess of the next higher SLR scenario. They account for a total of 8.24 flooded ha, out of a total flooded area of 23,501,304 ha nationally at SLR 10 ft. These sliver cases can be attributed to the independent vectorization at different SLR levels, resulting in boundaries along the same watercourse that are not coincident at the sub-meter scale. Thus, differencing them yields sliver polygons, a long-recognized artifact in geographical vector data (Goodchild 1978; Delafontaine et al. 2009). No structures were found within these sliver polygons, so they have no effect at all on flooded structures statistics.
+**2) "Sliver polygons" (40 cases).** Tracts were found in NC (14), VA (11), SC (10), PA (3), GA (1), and NY (1) where inundation at one SLR level slightly exceeds the inundation at the next higher SLR level. 39 of these cases were found at SLR 3 ft, and one at SLR 2 ft. The flooded area polygons in these cases range from a minimum of 0.01 to a maximum of 0.67 m in mean width, in 26,952 disconnected parts, across 566 km of perimeter. Visual inspection of a sample of these cases found that they follow inland watercourses along tract boundaries and are shaped like thin "slivers" adjacent to the water and tract bounds. These 40 cases average 0.206 ha in flooded area in excess of the next higher SLR scenario. They account for a total of 8.24 flooded ha, out of a total flooded area of 23,501,304 ha nationally at SLR 10 ft. These sliver cases can be attributed to the independent vectorization at different SLR levels, resulting in boundaries along the same watercourse that are not coincident at the sub-meter scale. Thus, differencing them yields sliver polygons, a long-recognized artifact in geographical vector data (Goodchild 1978; Delafontaine et al. 2009). None of the non-monotonic structures identified in Section 2.10.2 falls within any of these tracts; given that the sliver polygons average 0.206 ha in ribbons well under a meter in mean width, a structure footprint intersecting one is implausible on geometric grounds alone.
 
 **3) Unexplained cases (2).** An excess flooded area of 9.74 ha was found in Maine (tract 23009965100) at SLR 9 ft, distributed across 45 parts with a mean width of 2.89 m. A second excess area of 1.13 ha was found in Delaware (tract 10003016610) at SLR 8 ft, in 159 parts with a mean width of 4.85 m. Both are an order of magnitude wider than the sliver cases and neither lies on the SLR 9 ft cut line described above, so they are not readily attributable to either of the preceding mechanisms and the exact mechanism behind their origin remains unexplained. As with the "sliver polygons" no structures were found within these flooded areas.
+
+#### Dips
+
+The mirror-image test identifies tracts where `slr_area_ha` at scenario N falls [below]{.underline} the value at both N−1 and N+1. Because a dip of the kind of interest here is a large, obvious excursion rather than a marginal one, a 20% relative threshold was used rather than the 0.1% tolerance applied to spikes.
+
+Four tract-scenario dips remain nationally:
+
+| Tract | State | Scenario | N−1 (ha) | N (ha) | N+1 (ha) |
+|----|----|----|----|----|----|
+| 45035010400 | SC | 2 ft | 23.9 | 16.2 | 69.3 |
+| 13103030206 | GA | 4 ft | 22.6 | 11.0 | 59.7 |
+| 10003016610 | DE | 9 ft | 5.1 | 0.7 | 8.0 |
+| 48489990000 | TX | 9 ft | 12,164.3 | 0.0 | 12,164.3 |
+
+Table 2.10.1.A. Tract-scenario dips: inundated area more than 20% below the value at both adjacent scenarios.
+
+Two observations. First, tracts `13103030206` and `10003016610` appear in the spike results as well, at different scenarios — these are tracts with disturbed area profiles across several scenarios rather than single-point excursions. Second, `45035010400` (Dorchester County, SC, on the Ashley River well upstream of Charleston) is a two-scenario dip: the area runs 59.7, 23.9, 16.2 ha at 0, 1 and 2 ft, recovers to 69.3 ha at 3 ft, then grows normally to 389.6 ha at 10 ft. Only the 1 ft and 2 ft values are anomalous.
+
+The Texas case is different in kind and worth describing precisely. Tract `48489990000` is a Census water tract that reports the full tract area of 12,164.3 ha as inundated at [every]{.underline} scenario except 9 ft, where it reports 1.9 × 10⁻¹³ ha. Direct testing confirms that the 9 ft extent does cover the tract in both the regional and subdivided SLR tables; the discrepancy arises when `ST_Intersection` is computed on boundaries that are very nearly coincident, returning a degenerate result rather than the full overlap. A sweep of all 584,694 tract-scenario rows found this to be the only such case, plus two tracts where a near-zero intersection area is the correct answer.
+
+This is the mirror image of the precision problem described at the start of this section. Near-coincident geometry produced false [positives]{.underline} under a strict spike test, which is why a 0.1% tolerance was applied; here the same floating-point behavior produced a false [negative]{.underline}. Both directions of the same underlying issue are present in the data, and both are accounted for.
 
 All tract non-monotonic inundation exceptions noted above are retained in the published .gpkg tract datasets as computed.
 
@@ -1216,66 +1243,25 @@ Ledoux, H., Arroyo Ohori, K. and Meijers, M., 2014. A triangulation-based approa
 
 ### 2.10.2 Structure non-monotonic inundation
 
-Across the 23 states, 2,185 structures out of 14,196,149 (0.015%) were identified as flooded at SLR N ft and not flooded at SLR N+1 ft. The non-monotonic behavior is dominated by structures found in Louisiana (LA), accounting for 86% of all cases (Table 2.10.2.A).
+Across the 23 states, 303 structures out of 14,196,149 (0.0021%) were identified as flooded at SLR N ft and not flooded at SLR N+1 ft. Considered against the full 14,196,149 × 10 structure × transition combinations, the rate is 2 parts in 10^6^.
 
 | First non-monotonic transition | Structures | Principal states |
 |----|----|----|
-| 0 ft → 1 ft | 1,902 | LA (1,882), SC (19), TX (1) |
+| 0 ft → 1 ft | 20 | SC (19), TX (1) |
 | 1 ft → 2 ft | 3 | SC |
 | 2 ft → 3 ft | 143 | MD, NC, SC, DE, VA, NJ, ME, NY, GA, MA, CT, NH |
 | 3 ft → 4 ft | 79 | VA, MD, NJ, NY, SC, ME, NC, MA, DE, GA, RI, NH |
 | 6 ft → 7 ft | 55 | CA (40), VA (15) |
 | 9 ft → 10 ft | 3 | ME |
 
-Table 2.10.2.A. Characteristics of structures with non-monotonic behavior. Most of the anomalous structure flooding (86%) occur in the state of Louisiana. The 1882 LA cases are characterized by structures with no flooding at SLR 1 ft, but the same structures are flooded at all other SLR levels including SLR 0 ft.
+Table 2.10.2.A. Non-monotonic structures by the SLR transition at which the flag first reverses.
 
-Louisiana's anomalous, non-monotonic behavior is characterized by structure flooding at SLR 0 ft, [no]{.underline} structure flooding at SLR 1 ft, and structure flooding at SLR 2 ft plus all higher SLR scenarios. This structure flooding signature is found in 22 tracts in the southern part of the state; all cases occur within \~130 km of the coastline.
+By state, the affected structures are distributed as: VA 61, MD 48, SC 48, CA 40, NC 29, NJ 18, DE 16, ME 16, NY 10, MA 6, GA 5, CT 2, NH 2, RI 1, TX 1. No Louisiana structure is non-monotonic at any transition.
 
-| tract ID | median dist to water | number of structures | median dist to water | tract ID | number of structures |
-|----|----|----|----|----|----|
-| 22023970203 | 665.6 | 1 | 22109001001 | 14.3 | 68 |
-| 22057020704 | 466.6 | 6 | 22057020800 | 14 | 30 |
-| 22057021500 | 298 | 349 | 22023970202 | 11.8 | 77 |
-| 22057021700 | 188.9 | 463 | 22057021604 | 11.3 | 8 |
-| 22057021602 | 178.8 | 375 | 22057021800 | 8.7 | 3 |
-| 22057021603 | 52.8 | 253 | 22093040700 | 8.6 | 6 |
-| 22057020900 | 21.8 | 1 | 22109001100 | 8.3 | 4 |
-| 22109001002 | 19.1 | 11 | 22057021000 | 4.8 | 42 |
-| 22057021102 | 15.8 | 9 | 22023990000 | 0 | 27 |
-| 22057021902 | 14.8 | 6 | 22093040500 | 0 | 6 |
-| 22023970102 | 14.3 | 133 | 22097960400 | 0 | 4 |
+**Prior to the Louisiana correction described in Section 2.1, this count was 2,185**, of which 1,882 (86%) were Louisiana structures exhibiting a distinctive signature: flooded at SLR 0 ft, unflooded at SLR 1 ft, and flooded at SLR 2 ft and every higher scenario. That signature was entirely an artifact of the truncated 1 ft source file, which was missing 21% of its geometry. After substitution and reprocessing, a direct test finds [zero]{.underline} Louisiana structures flooded at 0 ft and unflooded at 1 ft. The correction also added 6,563 structures to the Louisiana 1 ft flooded count (34,653 → 41,216) and 48 tracts to the Louisiana 1 ft intersection set (312 → 360).
 
-Table 2.10.2.B. Median distance of non-monotonic structures to water (measured using Census 2025 areawater and linearwater shapefiles) in meters for structures that exhibit flooding at SLR 0 ft, [no flooding at SLR 1 ft]{.underline}, and flooding at all higher SLR scenarios.
+**Mechanism.** The 303 remaining cases are single-scenario transitions dispersed across many locations, with the great majority recovering at the following scenario. Their behavior is consistent with the sliver polygon boundary effects described in Section 2.10.1: SLR extent polygons are vectorized independently at each scenario, so boundaries along the same feature are not coincident at the sub-meter scale. A structure footprint that intersects the extent at scenario N by only a few centimeters may fall outside it at N+1 even though the inundated area has grown, because the boundary has been drawn fractionally differently. `ST_Intersects` returns true for contact of any magnitude, so such marginal cases are recorded as flooded.
 
-Table 2.10.2.B illustrates the distribution of the 1882 anomalous structures in Louisiana. This distribution falls into 3 classes as defined below.
+The concentration at the 2→3 ft and 3→4 ft transitions (222 of 303 cases, 73%) matches the concentration of tract-level sliver anomalies at SLR 3 ft described in Section 2.10.1, though the two sets of tracts do not overlap: the tract-level test flags only tracts where the sliver area exceeds 0.1% of that tract's inundated area, which selects tracts with very little inundation overall.
 
-**1) Structures within the SLR 0 flooded area, but actually on dry ground** based on visual inspection of current satellite imagery in GoogleEarth. This class accounts for most of the anomalous structures (1440, 76.5% of the LA total) and the cases are clustered in 4 tracts: 22057021500 (Larose), 22057021700 (Lockport), 22057021602 (between Lockport and Larose), 22057021603 (West of Raceland). All of these tracts follow the Route 301/Route 1 corridor. Visual inspection of current satellite imagery shows that all of the structures in the Lockport/Larose tracts are on dry ground. Again, based on visual inspection, about half of the structures in tract 22057021603 are on dry ground while the other half are on the margin of Lake Fields.
-
-**2) Structures actually located within water bodies** (tracts 22023990000, 22093040500 and 22097960400) but classifying as "dry" at SLR 1 ft (37 structures, 1.97%); all 37 lie at a measured distance of exactly zero from mapped water. It is not clear how or why water bodies at SLR 0 ft would "dry out" at SLR 1 ft. Indeed, tract 22023990000 is a water body tract (identified by its Census GEOID series 9900xx) and is completely located within the Gulf of Mexico. Note that for this class the suspect flag is the [reverse]{.underline} of Class 1: these structures are in permanent open water and should be flagged as flooded at every scenario, so it is the SLR 1 ft value that is in error rather than the SLR 0 ft value.
-
-**3) All other tracts** in Table 2.10.2.B contain 405 anomalous structures (21.5% of the total) that fall along the margins of water bodies (coastline, bayous, rivers, lakes, etc.).
-
-The "Class 1" anomaly defined above is most plausibly a consequence of the SLR 0 ft layer being a separate NOAA product representing the current Mean Higher High Water surface rather than the zeroth member of the SLR 1–10 ft inundation series (see Section 2.1). Based on this assumption, the SLR 0 ft extent in the Lockport to Larose corridor reflects error in the MHHW surface itself; the SLR 1 ft value is then assumed to be a correct classification, and the SLR 2 ft and higher scenarios correctly re-classify these locations as flooded once genuine inundation reaches them. It should be noted that the test applied here detects only structures whose flags are non-monotonic. If the MHHW surface over-inundates the corridor, it will also over-flag structures that happen to remain flooded at SLR 1 ft and above, and those cases are invisible to this analysis; the 1,440 Class 1 structures are therefore a lower bound on the affected population rather than a complete inventory.
-
-In the derived dataset we include a `suspected_SLR_0ft_errata.gpkg` file that identifyies the structures affected by both classes. Because the suspect flag differs between them—the SLR 0 ft value for Class 1, the SLR 1 ft value for Class 2—each record carries a category field and a note stating which scenario value is believed to be in error and in which direction. The content of the errata file is described in Section 2.10.3 below.
-
-The remaining "Class 3" structures comprise 405 Louisiana cases plus 283 in other states. These are grouped by position rather than by transition: the Louisiana cases share the 0 ft → 1 ft transition of Classes 1 and 2, while those in other states are single-scenario transitions at 1→2 ft, 2→3 ft, 3→4 ft, 6→7 ft and 9→10 ft are dispersed across many locations, with 94% recovering at the following scenario. What unites them is that all lie on the immediate margins of water bodies. As mentioned above, this class of non-monotonic structures are typically found along the margins of water bodies. Their anomalous behavior is consistent with the "sliver" polygon boundary effects defined earlier: extent polygons are vectorized independently at each scenario, so boundaries are not strictly aligned at the sub-cell scale which leads to small errors when comparing vector boundaries at adjacent SLR scenarios. These 685 structures account for 0.005% of the 14,196,149 structures in the derived dataset, and just 5 parts in 10^6^ when considering the full 14,196,149 x 9 instances of structures x levels. Given this low non-monotonic error rate, these cases remain uncorrected in the derived dataset.
-
-### 2.10.3 Errata file for suspected flag errors
-
-Two of the three classes of non-monotonic structure flooding described in Section 2.10.2 are attributable to identifiable error in the NOAA source layers rather than to boundary geometry. For these, the affected structures are recorded in an errata file, `suspected_SLR_0ft_errata.gpkg`, deposited alongside the per-state GeoPackages in the Dryad archive.
-
-**No flag in the published dataset has been altered.** The flooded-structure tables and the exported GeoPackages report the flags exactly as computed from the NOAA source polygons, so every value in the release remains traceable to its input. The errata file is a record of what was found during validation, not a correction applied to the data. Users may join it to the published product and exclude or down-weigh the affected records as their analysis requires; users working at national or regional scale, where 1,477 structures out of 14,196,149 is essentially immaterial, may reasonably ignore it.
-
-The file contains two layers, both in EPSG:5070:
-
-| Layer | Records | Geometry | Contents |
-|----|----|----|----|
-| `suspected_errata_structures` | 1,477 | Polygon | FEMA USA Structures footprints with suspect flags |
-| `errata_tracts` | 7 | Polygon | Census tract boundaries, for context |
-
-Each structure record carries the fields needed to identify the suspect value and the direction of the suspected error, since these differ between the two classes (Section 2.10.2). `errata_class` and `category` identify the class; `suspect_scenario` names the SLR level whose value is in question; `published_value` and `believed_value` give the flag as released and as believed correct; `note` states the same in prose. `dist_water_m` carries the measured distance from the structure footprint to the nearest mapped water feature (TIGER/Line 2025 `AREAWATER` and `LINEARWATER`), and `mixed_tract` flags records from tract 22057021603, where dry-ground structures and structures on the margin of Lake Fields could not be separated at tract level. Structure attributes (`build_id`, `tract_geoid`, `occ_cls`, `prim_occ`, `sqmeters`, `prop_addr`, `prop_city`) are carried through unchanged from the source product, and `build_id` is the join key to the published tables. A companion `README.md` in the deposit repeats the class definitions and caveats.
-
-Class 3 structures are deliberately excluded. Their behavior is consistent with sliver effects arising from independent vectorization of each scenario's extent (Section 2.10.1), which is a property of the source data rather than an identifiable error in it, and the measured distance-to-water distribution for these structures is a smooth decay with no natural break — so no per-structure threshold would separate them from correctly flagged marginal cases without imposing an arbitrary cut.
-
-Three limitations apply to the errata file and are stated in the deposited README. First, the Class 1 count is a lower bound: the underlying test detects only structures whose flags are non-monotonic across scenarios, so structures that are over-flagged at SLR 0 ft but remain flooded at SLR 1 ft and above are not detectable by this method. Second, Class 1 membership rests on visual inspection of current satellite imagery, which is evidence of present-day conditions rather than of the conditions the MHHW surface was intended to represent. Third, the 253 records from tract 22057021603 are known to be a mixed population and are flagged as such; users requiring a conservative set should exclude them.
+Given this low non-monotonic error rate, and that the affected structures are marginal intersections rather than substantive misclassifications, these cases remain uncorrected in the derived dataset. Users requiring strictly monotone flags — for example when computing incremental exposure between adjacent scenarios — should derive a cumulative flag, `flooded_Nft_cum = MAX(flooded_0ft … flooded_Nft)`, which is monotone by construction. The published tables retain the per-scenario flags as computed so that the relationship to the NOAA source data remains auditable.

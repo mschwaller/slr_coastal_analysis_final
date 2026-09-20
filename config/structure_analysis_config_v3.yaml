@@ -18,8 +18,8 @@ mode:
 # Geographic Scope
 # ------------------------------------------------------------------------------
 # All 23 states/territories (original 21 coastal states + PA + DC):
-# states: ["01","06","09","10","11","12","13","22","23","24","25","28","33","34","36","37","41","42","44","45","48","51","53"] # do all
-states: ["22"]
+states: ["01","06","09","10","11","12","13","22","23","24","25","28","33","34","36","37","41","42","44","45","48","51","53"] # do all
+# states: ["22"]
 
 # Coastal states for 7 April 2026 launch_subdivide_parallel_v1.R run:
 # Wave #1: ME, MD, MA, NH, RI, SC
@@ -55,8 +55,8 @@ test_counties:
 
 # SLR Scenarios
 # ------------------------------------------------------------------------------
-# slr_scenarios: ["0ft", "1ft", "2ft", "3ft", "4ft", "5ft", "6ft", "7ft", "8ft", "9ft", "10ft"]  # do all flooding levels
-slr_scenarios: ["1ft"]
+slr_scenarios: ["0ft", "1ft", "2ft", "3ft", "4ft", "5ft", "6ft", "7ft", "8ft", "9ft", "10ft"]  # do all flooding levels
+# slr_scenarios: ["1ft"]
 
 # SLR Region Names (must match the 'region' column in slr_clean_Xft tables)
 # ------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ prefilter:
 paths:
   log_dir: "~/Science/Nora_SLR/SLR_log_files"
   structures_base_dir: "~/Science/Nora_SLR/house_footprints"
-  structures_export_dir: "~/claude_projects/slr_analysis/exports/flooded_structures_gpkg"   # optional, uses hard-coded default if not specified
+  structures_export_dir: "~/Science/Nora_SLR/release_0225/gpkg_tract_structures_exports/flooded_structures_gpkg"
 
 # Structure Loading Parameters (used by load_structures_to_db_v2.R)
 # ------------------------------------------------------------------------------

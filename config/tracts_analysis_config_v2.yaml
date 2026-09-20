@@ -21,7 +21,7 @@ mode:
 # Geographic Scope — 21 coastal states (FIPS codes)
 # ------------------------------------------------------------------------------
 # These must match the subdivided SLR table suffixes: slr_{scenario}_{fips}
-states:
+#states:
  - "01"   # AL
  - "06"   # CA
  - "09"   # CT
@@ -45,6 +45,9 @@ states:
  - "48"   # TX
  - "51"   # VA
  - "53"   # WA
+
+#states:
+# - "22"   # LA
 
 # SLR Scenarios to process (loops over all in a single run)
 # ------------------------------------------------------------------------------
@@ -81,7 +84,7 @@ analysis:
 # ------------------------------------------------------------------------------
 paths:
   log_dir: "~/Science/Nora_SLR/SLR_log_files"
-  tracts_export_dir :  "~/claude_projects/slr_analysis/exports/flooded_tracts_gpkg" 
+  tracts_export_dir: "~/Science/Nora_SLR/release_0225/gpkg_tract_structures_exports/flooded_tracts_gpkg"
 
 # Notifications & alerts
 # ------------------------------------------------------------------------------
