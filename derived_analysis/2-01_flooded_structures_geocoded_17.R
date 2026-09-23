@@ -30,7 +30,7 @@
 # Run on TRIPPER3 (long job) inside screen; tee console for tailing:
 #   screen -S slr_geocode
 #   cd ~/claude_projects/slr_analysis
-#   Rscript 2-01_flooded_structures_geocoded.R \
+#   Rscript 2-01_flooded_structures_geocoded_17.R \
 #     2>&1 | tee ~/Science/Nora_SLR/SLR_log_files/geocode_console.log
 #   # detach: Ctrl-A then D   |   reattach: screen -r slr_geocode
 # ntfy.sh push notifications fire per state and at completion
@@ -44,9 +44,9 @@
 SCRIPT_VERSION <- "v16 (2026-07-05)"
 cat("==== 2-01_flooded_structures_geocoded", SCRIPT_VERSION, "====\n")
 
-footprints_dir <- "~/Science/Nora_SLR/house_footprints/"
-slr_dir        <- "~/claude_projects/slr_analysis/exports/flooded_structures_gpkg/"
-out_dir        <- "~/claude_projects/slr_analysis/exports/SLR_states/"
+footprints_dir <- "~/Science/Nora_SLR/source_files_common/house_footprints/"
+slr_dir        <- "~/Science/Nora_SLR/release_0225/gpkg_tract_structures_exports/flooded_structures_gpkg/"
+out_dir        <- "~/Science/Nora_SLR/blockgroup_output/"
 
 footprints_dir <- path.expand(footprints_dir)
 slr_dir        <- path.expand(slr_dir)
